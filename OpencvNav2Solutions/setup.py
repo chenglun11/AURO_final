@@ -10,6 +10,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        ('share/' + 'assessment', ['package.xml'] )
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -20,6 +21,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+        'item_deceter = OpencvNav2Solutions.pkg.item_detecter_node:main',
         ],
     },
 )
