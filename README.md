@@ -8,10 +8,9 @@ OpencvNav2Solution is a solution to the finial Assessment of AURO at University 
 
 [![Contributors][contributors-shield]][contributors-url]
 [![Forks][forks-shield]][forks-url]
-[![Stargazers][stars-shield]][stars-url]
+![GitHub Repo stars](https://img.shields.io/github/stars/chenglun11/AURO_final)
 [![Issues][issues-shield]][issues-url]
-[![MIT License][license-shield]][license-url]
-[![LinkedIn][linkedin-shield]][linkedin-url]
+![GitHub License](https://img.shields.io/github/license/chenglun11/AURO_final)
 
 <!-- PROJECT LOGO -->
 <br />
