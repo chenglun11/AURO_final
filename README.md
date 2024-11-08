@@ -24,7 +24,7 @@
   <p align="center">OpencvNav2Solution is a solution to the finial Assessment of AURO at University of York 2024-2025-M</p>
   <p align="center">
     <br />
-    <a href="https://github.com/chenglun11/AURO_final/README.md"><strong>Explore this document »</strong></a>
+    <a href="https://github.com/chenglun11/AURO_final/blob/main/README.md"><strong>Explore this document »</strong></a>
     <br />
     <br />
     <a href="https://github.com/chenglun11/AURO_final">Demo</a>
