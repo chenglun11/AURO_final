@@ -65,38 +65,38 @@
 
 ###### **安装步骤**
 
-1. Get a free API Key at [https://example.com](https://example.com)
-2. Clone the repo
+1. Clone the repo
 
 ```sh
-git clone https://github.com/shaojintian/Best_README_template.git
+git clone https://github.com/chenglun11/AURO_final.git
+```
+
+2. Build
+```sh
+colcon build
+```
+
+3. Source Code
+```sh
+Source /path/install/local_setup.bash
 ```
 
 ### 文件目录说明
 
 ```
 filetree 
-├── ARCHITECTURE.md
-├── LICENSE.txt
-├── README.md
-├── /account/
-├── /bbs/
-├── /docs/
-│  ├── /rules/
-│  │  ├── backend.txt
+├── /OpencvNav2Solutions/
+│  ├── /OpencvNav2Solutions/
+│  ├── /resource/
+│  ├── /test/
+│  │  ├── package.xml
+│  │  ├── setup.cfg
+│  │  ├── setup.py
 │  │  └── frontend.txt
-├── manage.py
-├── /oa/
-├── /static/
-├── /templates/
-├── useless.md
-└── /util/
+├── LICENSE
+└── README.md 
 
 ```
-
-
-
-
 
 ### ARCHITECTURE 
 
