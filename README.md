@@ -2,14 +2,14 @@
 
 # OpencvNav2Solution
 
-OpencvNav2Solution is a solution to the finial Assessment of AURO at University of York 2024-2025-M
+
 
 <!-- PROJECT SHIELDS -->
 
 [![Contributors][contributors-shield]][contributors-url]
-[![Forks][forks-shield]][forks-url]
 ![GitHub Repo stars](https://img.shields.io/github/stars/chenglun11/AURO_final)
-[![Issues][issues-shield]][issues-url]
+![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/chenglun11/AURO_final)
+![GitHub Release](https://img.shields.io/github/v/release/chenglun11/AURO_final)
 ![GitHub License](https://img.shields.io/github/license/chenglun11/AURO_final)
 
 <!-- PROJECT LOGO -->
@@ -20,24 +20,22 @@ OpencvNav2Solution is a solution to the finial Assessment of AURO at University 
     <img src="images/logo.png" alt="Logo" width="80" height="80">
   </a>
 
-  <h3 align="center">"完美的"README模板</h3>
+  <h3 align="center">AURO - Solutions </h3>
+  <p align="center">OpencvNav2Solution is a solution to the finial Assessment of AURO at University of York 2024-2025-M</p>
   <p align="center">
-    一个"完美的"README模板去快速开始你的项目！
     <br />
-    <a href="https://github.com/chenglun11/AURO_final"><strong>探索本项目的文档 »</strong></a>
+    <a href="https://github.com/chenglun11/AURO_final"><strong>Explore this document »</strong></a>
     <br />
     <br />
-    <a href="https://github.com/chenglun11/AURO_final">查看Demo</a>
+    <a href="https://github.com/chenglun11/AURO_final">Demo</a>
     ·
-    <a href="https://github.com/chenglun11/AURO_final/issues">报告Bug</a>
+    <a href="https://github.com/chenglun11/AURO_final/issues">Report Bug</a>
     ·
-    <a href="https://github.com/chenglun11/AURO_final/issues">提出新特性</a>
+    <a href="https://github.com/chenglun11/AURO_final/issues">Commit a Feature</a>
   </p>
 
 </p>
 
-
- 本篇README.md面向开发者
  
 ## 目录
 
@@ -56,14 +54,14 @@ OpencvNav2Solution is a solution to the finial Assessment of AURO at University 
 
 ### 上手指南
 
-请将所有链接中的“shaojintian/Best_README_template”改为“your_github_name/your_repository”
 
 
 
 ###### 开发前的配置要求
 
-1. xxxxx x.x.x
-2. xxxxx x.x.x
+1. ROS2 Humble
+2. Gazebo Classic Version
+3. 
 
 ###### **安装步骤**
 
@@ -75,7 +73,6 @@ git clone https://github.com/shaojintian/Best_README_template.git
 ```
 
 ### 文件目录说明
-eg:
 
 ```
 filetree 
@@ -101,7 +98,7 @@ filetree
 
 
 
-### 开发的架构 
+### ARCHITECTURE 
 
 请阅读[ARCHITECTURE.md](https://github.com/shaojintian/Best_README_template/blob/master/ARCHITECTURE.md) 查阅为该项目的架构。
 
@@ -109,13 +106,13 @@ filetree
 
 暂无
 
-### 使用到的框架
+### Framework
 
 - [xxxxxxx](https://getbootstrap.com)
 - [xxxxxxx](https://jquery.com)
 - [xxxxxxx](https://laravel.com)
 
-### 贡献者
+### Contributing
 
 请阅读**CONTRIBUTING.md** 查阅为该项目做出贡献的开发者。
 
@@ -132,15 +129,16 @@ filetree
 
 
 
-### 版本控制
+### Version Control
 
 该项目使用Git进行版本管理。您可以在repository参看当前可用版本。
 
-### 作者
+### Author
 
-xxx@xxxx
+admin@lchnan.cn
+xxv507@york.ac.uk
 
-知乎:xxxx  &ensp; qq:xxxxxx    
+知乎:xxxx  &ensp; Wechat:LCHNAN01    
 
  *您也可以在贡献者名单中参看所有参与该项目的开发者。*
 
