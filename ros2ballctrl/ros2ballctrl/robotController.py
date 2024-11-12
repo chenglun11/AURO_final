@@ -5,10 +5,9 @@ from rclpy.action import ActionClient
 from assessment_interfaces.srv import ItemRequest
 from assessment_interfaces.msg import ItemList, ZoneList
 
-
 class robotCOntroller(Node):
     def __init__(self):
-        super().__init__('robotController')
+        super().__init__('robotCOntroller')
 
         # 服务客户端，用于拾取和放置小球
         self.pick_up_client = self.create_client(ItemRequest, '/pick_up_item')
@@ -26,11 +25,11 @@ class robotCOntroller(Node):
         self.current_zones = []
 
     def item_callback(self, msg):
-        # 获取并保存最新的小球信息
+        # 更新小球信息
         self.current_items = msg.data
 
     def zone_callback(self, msg):
-        # 获取并保存最新的区域信息
+        # 更新区域信息
         self.current_zones = msg.data
 
     def pick_up_item(self, robot_id):
@@ -56,24 +55,37 @@ class robotCOntroller(Node):
         self.nav_to_pose_client.send_goal_async(goal_msg)
 
     def control_loop(self):
-        # 控制主循环，处理小球识别、拾取、放置
-        if self.current_items:
-            for item in self.current_items:
-                # 假设当前小球在机器人附近，则拾取
-                self.pick_up_item("robot_1")  # 假设只有一个机器人
-                self.get_logger().info(f'Picked up item at ({item.x}, {item.y})')
+        # 确保有可检测到的小球
+        if not self.current_items:
+            self.get_logger().info('No items detected. Waiting for item detection...')
+            return
 
-                # 根据小球颜色选择对应的区域放置
-                target_zone = next((zone for zone in self.current_zones if zone.zone == item.colour), None)
-                if target_zone:
-                    self.navigate_to(target_zone.x, target_zone.y)
-                    self.offload_item("robot_1")
-                    self.get_logger().info(f'Offloaded item at zone ({target_zone.x}, {target_zone.y})')
+        for item in self.current_items:
+            # 假设当前小球在机器人附近，则拾取
+            self.pick_up_item("robot_1")
+            self.get_logger().info(f'Picked up item at ({item.x}, {item.y})')
 
+            # 查找与小球颜色匹配的目标区域
+            target_zone = next((zone for zone in self.current_zones if zone.zone == item.colour), None)
+
+            if target_zone:
+                # 如果检测到目标区域，则导航到该区域
+                self.navigate_to(target_zone.x, target_zone.y)
+                self.get_logger().info(f'Navigating to zone at ({target_zone.x}, {target_zone.y})')
+                self.offload_item("robot_1")
+                self.get_logger().info(f'Offloaded item at zone ({target_zone.x}, {target_zone.y})')
+            else:
+                self.get_logger().info('No matching zone detected. Waiting for zone detection...')
+                return
 
 def main(args=None):
     rclpy.init(args=args)
     robot = robotCOntroller()
+
+    # 设置一个定时器，每秒执行一次主循环
+    timer_period = 1.0
+    robot.create_timer(timer_period, robot.control_loop)
+
     rclpy.spin(robot)
     robot.destroy_node()
     rclpy.shutdown()
