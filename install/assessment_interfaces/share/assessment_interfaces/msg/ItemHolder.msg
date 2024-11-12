@@ -1,4 +1,0 @@
-string robot_id
-bool holding_item
-string item_colour
-uint8 item_value
