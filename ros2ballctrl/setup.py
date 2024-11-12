@@ -47,8 +47,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'robotController = ros2ballctrl.robotController:main',
-            'itemManagerClient = ros2ballctrl.itemManagerClient:main',
+            'robotController = ros2ballctrl.robotController:main'
         ],
     },
 )

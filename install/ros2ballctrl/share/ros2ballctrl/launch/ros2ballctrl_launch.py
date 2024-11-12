@@ -93,7 +93,7 @@ def generate_launch_description():
     rviz_windows = PathJoinSubstitution([FindPackageShare('assessment'), 'config', 'rviz_windows.yaml'])
     # rviz_windows = PathJoinSubstitution([FindPackageShare(package_name), 'config', 'custom_rviz_windows.yaml'])
     map = PathJoinSubstitution([FindPackageShare('assessment'), 'maps', 'assessment_world.yaml'])
-    params = PathJoinSubstitution([FindPackageShare('assessment'), 'params', 'custom_nav2_params_namespaced.yaml'])
+    params = PathJoinSubstitution([FindPackageShare(package_name), 'config', 'nav2_params.yaml'])
     # params = PathJoinSubstitution([FindPackageShare(package_name), 'params', 'custom_nav2_params_namespaced.yaml'])
 
     assessment_cmd = IncludeLaunchDescription(

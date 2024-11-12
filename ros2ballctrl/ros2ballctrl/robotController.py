@@ -1,75 +1,79 @@
-# src/my_nav2_package/my_nav2_package/robot_controller.py
-
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import PoseStamped
 from nav2_msgs.action import NavigateToPose
 from rclpy.action import ActionClient
-from auro_interfaces.msg import ItemList, ZoneList
-from .item_manager_client import ItemManagerClient
+from assessment_interfaces.srv import ItemRequest
+from assessment_interfaces.msg import ItemList, ZoneList
 
-class RobotController(Node):
-    def __init__(self, robot_id):
-        super().__init__('robot_controller')
-        self.robot_id = robot_id
-        self.item_manager = ItemManagerClient()
-        self.holding_item = None
-        self.nav_action_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
 
-        # 订阅物品和区域话题
-        self.create_subscription(ItemList, f"/{self.robot_id}/items", self.item_callback, 10)
-        self.create_subscription(ZoneList, f"/{self.robot_id}/zones", self.zone_callback, 10)
+class robotCOntroller(Node):
+    def __init__(self):
+        super().__init__('robotController')
+
+        # 服务客户端，用于拾取和放置小球
+        self.pick_up_client = self.create_client(ItemRequest, '/pick_up_item')
+        self.offload_client = self.create_client(ItemRequest, '/offload_item')
+
+        # 导航客户端，用于路径规划
+        self.nav_to_pose_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
+
+        # 订阅小球和区域信息
+        self.item_subscriber = self.create_subscription(ItemList, 'items', self.item_callback, 10)
+        self.zone_subscriber = self.create_subscription(ZoneList, 'zone', self.zone_callback, 10)
+
+        # 当前检测到的小球和区域数据
+        self.current_items = []
+        self.current_zones = []
 
     def item_callback(self, msg):
-        for item in msg.items:
-            if not self.holding_item and item.color in ["red", "green", "blue"]:
-                # 导航到物品位置
-                self.navigate_to(item.x, item.y)
-                # 试图拾取物品
-                success = self.item_manager.pick_up(self.robot_id, item.id)
-                if success:
-                    self.holding_item = item.color
-                    self.get_logger().info(f"Picked up {item.color} item")
-                break
+        # 获取并保存最新的小球信息
+        self.current_items = msg.data
 
     def zone_callback(self, msg):
-        if self.holding_item:
-            for zone in msg.zones:
-                if zone.color == self.holding_item:
-                    # 导航到存放区域位置
-                    self.navigate_to(zone.x, zone.y)
-                    # 放置物品
-                    success = self.item_manager.offload(self.robot_id, zone.id)
-                    if success:
-                        self.get_logger().info(f"Offloaded {self.holding_item} item at {zone.color} zone")
-                        self.holding_item = None
-                    break
+        # 获取并保存最新的区域信息
+        self.current_zones = msg.data
+
+    def pick_up_item(self, robot_id):
+        # 请求服务拾取小球
+        request = ItemRequest.Request()
+        request.robot_id = robot_id
+        future = self.pick_up_client.call_async(request)
+        return future
+
+    def offload_item(self, robot_id):
+        # 请求服务放置小球
+        request = ItemRequest.Request()
+        request.robot_id = robot_id
+        future = self.offload_client.call_async(request)
+        return future
 
     def navigate_to(self, x, y):
-        goal_pose = PoseStamped()
-        goal_pose.header.frame_id = 'map'
-        goal_pose.header.stamp = self.get_clock().now().to_msg()
-        goal_pose.pose.position.x = x
-        goal_pose.pose.position.y = y
-        goal_pose.pose.orientation.w = 1.0
+        # 发送导航目标位置
+        goal_msg = NavigateToPose.Goal()
+        goal_msg.pose.pose.position.x = x
+        goal_msg.pose.pose.position.y = y
+        goal_msg.pose.pose.orientation.w = 1.0
+        self.nav_to_pose_client.send_goal_async(goal_msg)
 
-        nav_goal = NavigateToPose.Goal()
-        nav_goal.pose = goal_pose
+    def control_loop(self):
+        # 控制主循环，处理小球识别、拾取、放置
+        if self.current_items:
+            for item in self.current_items:
+                # 假设当前小球在机器人附近，则拾取
+                self.pick_up_item("robot_1")  # 假设只有一个机器人
+                self.get_logger().info(f'Picked up item at ({item.x}, {item.y})')
 
-        self.nav_action_client.wait_for_server()
-        self.nav_action_client.send_goal_async(nav_goal, feedback_callback=self.feedback_callback)
+                # 根据小球颜色选择对应的区域放置
+                target_zone = next((zone for zone in self.current_zones if zone.zone == item.colour), None)
+                if target_zone:
+                    self.navigate_to(target_zone.x, target_zone.y)
+                    self.offload_item("robot_1")
+                    self.get_logger().info(f'Offloaded item at zone ({target_zone.x}, {target_zone.y})')
 
-    def feedback_callback(self, feedback_msg):
-        feedback = feedback_msg.feedback
-        self.get_logger().info(f"Current navigation progress: {feedback.current_pose}")
 
 def main(args=None):
     rclpy.init(args=args)
-    robot_id = 'robot1'  # 根据实际情况设定机器人ID
-    robot_controller = RobotController(robot_id)
-    rclpy.spin(robot_controller)
-    robot_controller.destroy_node()
+    robot = robotCOntroller()
+    rclpy.spin(robot)
+    robot.destroy_node()
     rclpy.shutdown()
-
-if __name__ == '__main__':
-    main()
