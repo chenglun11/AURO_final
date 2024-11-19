@@ -4,11 +4,22 @@ import rclpy
 from rclpy.node import Node
 from rclpy.signals import SignalHandlerOptions
 from rclpy.executors import ExternalShutdownException
+from auro_interfaces.srv import ItemRequest
+from assessment_interfaces.msg import ItemList, ZoneList
+
 
 class RobotController(Node):
 
     def __init__(self):
         super().__init__('robot_controller')
+        self.pick_up_client = self.create_client(ItemRequest, '/pick_up_item')
+        self.offload_client = self.create_client(ItemRequest, '/offload_item')
+
+        self.item_subscriber = self.create_subscription(ItemList, 'items', self.item_callback, 10)
+        self.zone_subscriber = self.create_subscription(ZoneList, 'zone', self.zone_callback, 10)
+
+        self.current_items = []
+        self.current_zones = []
 
         self.declare_parameter('x', 0.0)
         self.declare_parameter('y', 0.0)
@@ -21,7 +32,19 @@ class RobotController(Node):
         self.timer_period = 0.1 # 100 milliseconds = 10 Hz
         self.timer = self.create_timer(self.timer_period, self.control_loop)
 
+    def item_callback(self,msg):
+        self.current_items = msg.data
+
+    def zone_callbake(self,msg):
+        self.current_zones = msg.data;
+
+    def item_pickup(self):
+        requests = ItemRequest.Request()
+        robot_id = requests.robot_id
+        
+
     def control_loop(self):
+
         self.get_logger().info(f"Initial pose - x: {self.initial_x}, y: {self.initial_y}, yaw: {self.initial_yaw}")
 
 
