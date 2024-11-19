@@ -5,10 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="3e53c53b-f35e-4d83-adca-d2c0c029c0ae" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/sync.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/AURO_final.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/AURO_final.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ros2ballctrl/ros2ballctrl/robotController.py" beforeDir="false" afterPath="$PROJECT_DIR$/ros2ballctrl/ros2ballctrl/robotController.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data_log_0.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_log_0.csv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/solution/solution/robot_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/solution/solution/robot_controller.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sync.sh" beforeDir="false" afterPath="$PROJECT_DIR$/sync.sh" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -54,7 +55,7 @@
       <window_info id="Commit_Guest" show_stripe_button="false" />
       <window_info id="Pull Requests" />
       <window_info id="Learn" />
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.25884354" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.21001758" />
       <window_info id="Commit" order="1" weight="0.25" />
       <window_info id="Structure" order="2" side_tool="true" weight="0.25" />
       <window_info anchor="bottom" id="Database Changes" />
@@ -65,8 +66,8 @@
       <window_info anchor="bottom" id="Find" />
       <window_info anchor="bottom" id="Version Control" order="0" weight="0.19945651" />
       <window_info anchor="bottom" id="Problems" order="1" />
-      <window_info anchor="bottom" id="Problems View" order="2" />
-      <window_info active="true" anchor="bottom" id="Terminal" order="3" visible="true" weight="0.3298913" />
+      <window_info anchor="bottom" id="Problems View" order="2" weight="0.22508214" />
+      <window_info anchor="bottom" id="Terminal" order="3" weight="0.22508214" />
       <window_info anchor="bottom" id="Services" order="4" />
       <window_info anchor="bottom" id="Python Packages" order="5" weight="0.1" />
       <window_info anchor="bottom" id="Python Console" order="6" weight="0.19945651" />
@@ -84,8 +85,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-d6986cc7102b-e768b9ed790e-JavaScript-PY-243.21565.33" />
-        <option value="bundled-python-sdk-4bb9488c150a-4ae2d6a61b08-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-243.21565.33" />
+        <option value="bundled-js-predefined-d6986cc7102b-e768b9ed790e-JavaScript-PY-243.21565.126" />
+        <option value="bundled-python-sdk-512373ba3030-4ae2d6a61b08-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-243.21565.126" />
       </set>
     </attachedChunks>
   </component>
@@ -104,6 +105,9 @@
       <workItem from="1732033168093" duration="278000" />
       <workItem from="1732033739363" duration="93000" />
       <workItem from="1732034398670" duration="1273000" />
+      <workItem from="1732051975978" duration="33000" />
+      <workItem from="1732052024887" duration="16000" />
+      <workItem from="1732052090577" duration="4222000" />
     </task>
     <servers />
   </component>
