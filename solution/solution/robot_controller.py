@@ -16,8 +16,6 @@ class RobotController(Node):
         self.pick_up_client = self.create_client(ItemRequest, '/pick_up_item')
         self.offload_client = self.create_client(ItemRequest, '/offload_item')
 
-        self.item_sensor_client = self.create_client(ItemList, 'items')
-
         self.item_subscriber = self.create_subscription(ItemList, 'items', self.item_callback, 10)
         self.zone_subscriber = self.create_subscription(ZoneList, 'zone', self.zone_callback, 10)
 
@@ -39,7 +37,7 @@ class RobotController(Node):
         self.get_logger().info(f"Received {len(msg.data)} items from ItemSensor.")
         self.current_items = msg.data  # 存储物品列表
 
-    def zone_callbake(self,msg):
+    def zone_callback(self,msg):
         self.current_zones = msg.data
 
     def item_pickup(self, robot_id):
