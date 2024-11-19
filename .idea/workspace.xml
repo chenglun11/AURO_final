@@ -4,7 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="3e53c53b-f35e-4d83-adca-d2c0c029c0ae" name="Changes" comment="" />
+    <list default="true" id="3e53c53b-f35e-4d83-adca-d2c0c029c0ae" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/sync.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ros2ballctrl/ros2ballctrl/robotController.py" beforeDir="false" afterPath="$PROJECT_DIR$/ros2ballctrl/ros2ballctrl/robotController.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/solution/solution/robot_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/solution/solution/robot_controller.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -49,7 +54,7 @@
       <window_info id="Commit_Guest" show_stripe_button="false" />
       <window_info id="Pull Requests" />
       <window_info id="Learn" />
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.28537416" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.25884354" />
       <window_info id="Commit" order="1" weight="0.25" />
       <window_info id="Structure" order="2" side_tool="true" weight="0.25" />
       <window_info anchor="bottom" id="Database Changes" />
@@ -58,13 +63,13 @@
       <window_info anchor="bottom" id="HfCacheToolWindow" />
       <window_info anchor="bottom" id="File Transfer" />
       <window_info anchor="bottom" id="Find" />
-      <window_info anchor="bottom" id="Version Control" order="0" />
+      <window_info anchor="bottom" id="Version Control" order="0" weight="0.19945651" />
       <window_info anchor="bottom" id="Problems" order="1" />
       <window_info anchor="bottom" id="Problems View" order="2" />
-      <window_info active="true" anchor="bottom" id="Terminal" order="3" visible="true" weight="0.2277174" />
+      <window_info active="true" anchor="bottom" id="Terminal" order="3" visible="true" weight="0.3298913" />
       <window_info anchor="bottom" id="Services" order="4" />
       <window_info anchor="bottom" id="Python Packages" order="5" weight="0.1" />
-      <window_info anchor="bottom" id="Python Console" order="6" weight="0.1" />
+      <window_info anchor="bottom" id="Python Console" order="6" weight="0.19945651" />
       <window_info anchor="right" id="Endpoints" />
       <window_info anchor="right" id="Coverage" side_tool="true" />
       <window_info anchor="right" id="SciView" />
@@ -96,10 +101,24 @@
       <workItem from="1731080622335" duration="299000" />
       <workItem from="1731347308872" duration="137000" />
       <workItem from="1732030228403" duration="1090000" />
+      <workItem from="1732033168093" duration="278000" />
+      <workItem from="1732033739363" duration="93000" />
+      <workItem from="1732034398670" duration="1273000" />
     </task>
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
 </project>

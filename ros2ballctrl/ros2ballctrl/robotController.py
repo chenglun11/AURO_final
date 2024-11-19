@@ -32,6 +32,7 @@ class robotCOntroller(Node):
         # 更新区域信息
         self.current_zones = msg.data
 
+
     def pick_up_item(self, robot_id):
         # 请求服务拾取小球
         request = ItemRequest.Request()
