@@ -44,6 +44,7 @@ class RobotController(Node):
         self.current_items = msg.data  # 存储物品列表
 
     def zone_callback(self,msg):
+        self.get_logger().info(f"Received {len(msg.data)} items from ZoneSensor.")
         self.current_zones = msg.data
 
     def item_pickup(self, robot_id):
@@ -139,6 +140,18 @@ class RobotController(Node):
     def control_loop(self):
 
         self.get_logger().info(f"Initial pose - x: {self.initial_x}, y: {self.initial_y}, yaw: {self.initial_yaw}")
+
+        if not self.current_zones:
+            self.get_logger().info("No zone detected.")
+            return
+
+        for zone in self.current_zones:
+            self.get_logger().info(
+                f"zone detected - Colour: {zone.colour}, X: {zone.x}, Y: {zone.y}, Diameter: {zone.diameter}, Value: {zone.value}"
+            )
+
+        closest_item = self.find_closest_item()
+        self.get_logger().info(f"closet item is {closest_item}")
 
         if not self.current_items:
             self.get_logger().info("No items detected.")
