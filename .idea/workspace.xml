@@ -4,8 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="3e53c53b-f35e-4d83-adca-d2c0c029c0ae" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    <list default="true" id="3e53c53b-f35e-4d83-adca-d2c0c029c0ae" name="Changes" comment="Changes the robot_controller.py">
       <change beforePath="$PROJECT_DIR$/data_log_0.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_log_0.csv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/solution/solution/robot_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/solution/solution/robot_controller.py" afterDir="false" />
     </list>
@@ -53,8 +52,8 @@
       <window_info id="Commit_Guest" show_stripe_button="false" />
       <window_info id="Pull Requests" />
       <window_info id="Learn" />
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.17076743" />
-      <window_info id="Commit" order="1" weight="0.25" />
+      <window_info content_ui="combo" id="Project" order="0" weight="0.17076743" />
+      <window_info active="true" id="Commit" order="1" visible="true" weight="0.17076743" />
       <window_info id="Structure" order="2" side_tool="true" weight="0.25" />
       <window_info anchor="bottom" id="Database Changes" />
       <window_info anchor="bottom" id="TypeScript" />
@@ -108,8 +107,17 @@
       <workItem from="1732052090577" duration="4222000" />
       <workItem from="1732407465167" duration="10000" />
       <workItem from="1732407484783" duration="89000" />
-      <workItem from="1732407588396" duration="2477000" />
+      <workItem from="1732407588396" duration="2708000" />
     </task>
+    <task id="LOCAL-00001" summary="Changes the robot_controller.py">
+      <option name="closed" value="true" />
+      <created>1732410526019</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1732410526019</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -125,5 +133,9 @@
         </entry>
       </map>
     </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Changes the robot_controller.py" />
+    <option name="LAST_COMMIT_MESSAGE" value="Changes the robot_controller.py" />
   </component>
 </project>

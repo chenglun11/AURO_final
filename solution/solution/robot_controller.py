@@ -49,7 +49,7 @@ class RobotController(Node):
 
 
 
-        self.current_items =  ItemList()
+        self.current_items = []
         self.current_zones = []
 
         self.nav_to_pose_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
