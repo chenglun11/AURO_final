@@ -5,6 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="3e53c53b-f35e-4d83-adca-d2c0c029c0ae" name="Changes" comment="Changes the robot_controller.py">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data_log_0.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_log_0.csv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/solution/solution/robot_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/solution/solution/robot_controller.py" afterDir="false" />
     </list>
@@ -107,7 +108,7 @@
       <workItem from="1732052090577" duration="4222000" />
       <workItem from="1732407465167" duration="10000" />
       <workItem from="1732407484783" duration="89000" />
-      <workItem from="1732407588396" duration="2708000" />
+      <workItem from="1732407588396" duration="2933000" />
     </task>
     <task id="LOCAL-00001" summary="Changes the robot_controller.py">
       <option name="closed" value="true" />
@@ -117,7 +118,15 @@
       <option name="project" value="LOCAL" />
       <updated>1732410526019</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="Changes the robot_controller.py">
+      <option name="closed" value="true" />
+      <created>1732410738392</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1732410738392</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

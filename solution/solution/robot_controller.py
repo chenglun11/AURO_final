@@ -5,14 +5,9 @@ import rclpy
 from rclpy.node import Node
 from rclpy.signals import SignalHandlerOptions
 from rclpy.executors import ExternalShutdownException
-from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.action import ActionClient
 from nav2_msgs.action import NavigateToPose
-from geometry_msgs.msg import Twist, Pose
-from nav_msgs.msg import Odometry
 from geometry_msgs.msg import PoseStamped
-from transforms3d._gohlketransforms import euler_from_quaternion
-
 from auro_interfaces.srv import ItemRequest
 from assessment_interfaces.msg import ItemList, ZoneList
 
@@ -22,32 +17,11 @@ class RobotController(Node):
 
     def __init__(self):
         super().__init__('robot_controller')
-
-        client_callback_group = MutuallyExclusiveCallbackGroup()
-        timer_callback_group = MutuallyExclusiveCallbackGroup()
-
-
         self.pick_up_client = self.create_client(ItemRequest, '/pick_up_item')
         self.offload_client = self.create_client(ItemRequest, '/offload_item')
 
-        # self.item_subscriber = self.create_subscription(ItemList, 'items', self.item_callback, 10)
-        # self.zone_subscriber = self.create_subscription(ZoneList, 'zone', self.zone_callback, 10)
-
-        self.item_subscriber = self.create_subscription(
-            ItemList,
-            '/items',
-            self.item_callback,
-            10, callback_group=timer_callback_group
-        )
-
-        self.zone_subscriber = self.create_subscription(
-            ZoneList,
-            '/zone',
-            self.zone_callback,
-            10, callback_group=timer_callback_group
-        )
-
-
+        self.item_subscriber = self.create_subscription(ItemList, 'items', self.item_callback, 10)
+        self.zone_subscriber = self.create_subscription(ZoneList, 'zone', self.zone_callback, 10)
 
         self.current_items = []
         self.current_zones = []
@@ -57,14 +31,6 @@ class RobotController(Node):
         self.declare_parameter('x', 0.0)
         self.declare_parameter('y', 0.0)
         self.declare_parameter('yaw', 0.0)
-
-
-
-        self.odom_subscriber = self.create_subscription(
-            Odometry,
-            'odom',
-            self.odom_callback,
-            10, callback_group=timer_callback_group)
 
         self.initial_x = self.get_parameter('x').get_parameter_value().double_value
         self.initial_y = self.get_parameter('y').get_parameter_value().double_value
@@ -80,21 +46,6 @@ class RobotController(Node):
     def zone_callback(self,msg):
         self.get_logger().info(f"Received {len(msg.data)} items from ZoneSensor.")
         self.current_zones = msg.data
-
-    def odom_callback(self, msg):
-        self.pose = msg.pose.pose  # Store the pose in a class variable
-
-        # Uses tf_transformations package to convert orientation from quaternion to Euler angles (RPY = roll, pitch, yaw)
-        # https://github.com/DLu/tf_transformations
-        #
-        # Roll (rotation around X axis) and pitch (rotation around Y axis) are discarded
-        (roll, pitch, yaw) = euler_from_quaternion([self.pose.orientation.x,
-                                                    self.pose.orientation.y,
-                                                    self.pose.orientation.z,
-                                                    self.pose.orientation.w])
-
-        self.yaw = yaw  # Store the yaw in a class variable
-
 
     def item_pickup(self, robot_id):
         if not self.pick_up_client.wait_for_service(timeout_sec=1.0):
@@ -120,7 +71,7 @@ class RobotController(Node):
     def nav_to_pose(self,x,y,yaw=0.0):
         """
               导航到指定位置 (x, y, yaw)。
-        """
+              """
 
         # 等待导航动作服务器可用
         if not self.nav_to_pose_client.wait_for_server(timeout_sec=5.0):
