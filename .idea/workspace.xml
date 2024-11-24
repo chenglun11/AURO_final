@@ -5,11 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="3e53c53b-f35e-4d83-adca-d2c0c029c0ae" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/AURO_final.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/AURO_final.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data_log_0.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_log_0.csv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/solution/solution/robot_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/solution/solution/robot_controller.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sync.sh" beforeDir="false" afterPath="$PROJECT_DIR$/sync.sh" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -55,7 +53,7 @@
       <window_info id="Commit_Guest" show_stripe_button="false" />
       <window_info id="Pull Requests" />
       <window_info id="Learn" />
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.21001758" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.17076743" />
       <window_info id="Commit" order="1" weight="0.25" />
       <window_info id="Structure" order="2" side_tool="true" weight="0.25" />
       <window_info anchor="bottom" id="Database Changes" />
@@ -66,7 +64,7 @@
       <window_info anchor="bottom" id="Find" />
       <window_info anchor="bottom" id="Version Control" order="0" weight="0.19945651" />
       <window_info anchor="bottom" id="Problems" order="1" />
-      <window_info anchor="bottom" id="Problems View" order="2" weight="0.22508214" />
+      <window_info anchor="bottom" id="Problems View" order="2" weight="0.3300578" />
       <window_info anchor="bottom" id="Terminal" order="3" weight="0.22508214" />
       <window_info anchor="bottom" id="Services" order="4" />
       <window_info anchor="bottom" id="Python Packages" order="5" weight="0.1" />
@@ -108,6 +106,9 @@
       <workItem from="1732051975978" duration="33000" />
       <workItem from="1732052024887" duration="16000" />
       <workItem from="1732052090577" duration="4222000" />
+      <workItem from="1732407465167" duration="10000" />
+      <workItem from="1732407484783" duration="89000" />
+      <workItem from="1732407588396" duration="2477000" />
     </task>
     <servers />
   </component>
