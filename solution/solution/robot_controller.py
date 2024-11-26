@@ -25,8 +25,11 @@ class RobotController(Node):
 
         self.current_items = []
         self.current_zones = []
+        self.items_received = False  # 是否收到物品列表
+        self.zones_received = False  # 是否收到区域列表
 
         self.nav_to_pose_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
+
 
         self.declare_parameter('x', 0.0)
         self.declare_parameter('y', 0.0)
@@ -39,13 +42,16 @@ class RobotController(Node):
         self.timer_period = 0.1 # 100 milliseconds = 10 Hz
         self.timer = self.create_timer(self.timer_period, self.control_loop)
 
+
     def item_callback(self,msg):
         self.get_logger().info(f"Received {len(msg.data)} items from ItemSensor.")
         self.current_items = msg.data  # 存储物品列表
+        self.items_received = True  # 标志收到物品数据
 
     def zone_callback(self,msg):
         self.get_logger().info(f"Received {len(msg.data)} zones from ZoneSensor.")
         self.current_zones = msg.data
+        self.zones_received = True  # 标志收到区域数据
 
     def item_pickup(self, robot_id):
         if not self.pick_up_client.wait_for_service(timeout_sec=1.0):
@@ -72,7 +78,6 @@ class RobotController(Node):
         """
               导航到指定位置 (x, y, yaw)。
               """
-
         # 等待导航动作服务器可用
         if not self.nav_to_pose_client.wait_for_server(timeout_sec=5.0):
             self.get_logger().error("NavigateToPose action server not available!")
@@ -137,39 +142,36 @@ class RobotController(Node):
         )
         return closest_item
 
+    def on_test(self):
+        self.get_logger().info("Testing nav_to_pose directly...")
+        success = self.nav_to_pose(10.0, 10.0, 0.0)  # 假设目标位置是 (1.0, 1.0)
+        if success:
+            self.get_logger().info("Navigation test succeeded.")
+        else:
+            self.get_logger().error("Navigation test failed.")
 
     def control_loop(self):
 
         self.get_logger().info(f"Initial pose - x: {self.initial_x}, y: {self.initial_y}, yaw: {self.initial_yaw}")
 
-        if not self.current_zones:
-            self.get_logger().info("No zone detected.")
-            return
-
-        # for zone in self.current_zones:
-        #     self.get_logger().info(
-        #         f"zone detected - Colour: {zone.colour}, X: {zone.x}, Y: {zone.y}, Diameter: {zone.diameter}, Value: {zone.value}"
-        #     )
-
-        if not self.current_items:
-            self.get_logger().info("No items detected.")
-            return
+        if not self.items_received or not self.zones_received:
+            self.get_logger().info("Waiting for items and zones data...")
+            return  # 等待下一次循环
 
         closest_item = self.find_closest_item()
-        self.get_logger().info(f"closet item is {closest_item}")
+       # self.get_logger().info(f"closet item is {closest_item}")
 
-        for item in self.current_items:
-            self.get_logger().info(
-                f"Item detected - Colour: {item.colour}, X: {item.x}, Y: {item.y}, Diameter: {item.diameter}, Value: {item.value}"
-            )
-
-
+        # for item in self.current_items:
+        #     self.get_logger().info(
+        #         f"Item detected - Colour: {item.colour}, X: {item.x}, Y: {item.y}, Diameter: {item.diameter}, Value: {item.value}"
+        #     )
 
 
-
-        if self.current_items:
-            self.get_logger().info(f"navigation to {closest_item.x},{closest_item.y}")
-            # success = self.nav_to_pose(float(closest_item.x), float(closest_item.y))
+        # if self.current_items:
+        #     self.get_logger().info(f"navigation to {closest_item.x},{closest_item.y}")
+        #     success = self.nav_to_pose(float(closest_item.x), float(closest_item.y))
+        #     if success:
+        #         self.get_logger().info(f"Navigation success")
         # if closest_item:
         #     success = self.nav_to_pose(self.current_items[0].x, self.current_items[0].y)
         #     if success:
