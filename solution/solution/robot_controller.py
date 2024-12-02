@@ -2,36 +2,86 @@ import math
 import sys
 
 import rclpy
+from enum import Enum
 from rclpy.node import Node
 from rclpy.signals import SignalHandlerOptions
 from rclpy.executors import ExternalShutdownException
 from rclpy.action import ActionClient
 from nav2_msgs.action import NavigateToPose
 from geometry_msgs.msg import PoseStamped
+from tf_transformations import euler_from_quaternion
 from auro_interfaces.srv import ItemRequest
 from assessment_interfaces.msg import ItemList, ZoneList
+from nav_msgs.msg import Odometry
 
 
+class ZoneLocation(Enum):
+    TOP_LEFT = 1
+    TOP_RIGHT = 2
+    BOTTOM_RIGHT = 3
+    BOTTOM_LEFT = 4
+
+
+class Zone():
+    def __init__(self,location, x, y, color):
+        self.location = location
+        self.x = x
+        self.y = y
+        self.color = None
 class RobotController(Node):
-
 
     def __init__(self):
         super().__init__('robot_controller')
         self.pick_up_client = self.create_client(ItemRequest, '/pick_up_item')
         self.offload_client = self.create_client(ItemRequest, '/offload_item')
 
-        self.item_subscriber = self.create_subscription(ItemList, 'items', self.item_callback, 10)
-        self.zone_subscriber = self.create_subscription(ZoneList, 'zone', self.zone_callback, 10)
+        self.item_subscriber = self.create_subscription(
+            ItemList,
+            'items',
+            self.item_callback,
+            10)
+        self.zone_subscriber = self.create_subscription(
+            ZoneList,
+            'zone',
+            self.zone_callback,
+            10)
+
+        self.odom_subscriber = self.create_subscription(
+            Odometry,
+            'odom',
+            self.odom_callback,
+            10,)
 
         self.current_items = []
         self.current_zones = []
         self.items_received = False  # 是否收到物品列表
         self.zones_received = False  # 是否收到区域列表
 
+        self.declare_parameter('zone_top_left', True)
+        self.declare_parameter('zone_top_right', True)
+        self.declare_parameter('zone_bottom_left', True)
+        self.declare_parameter('zone_bottom_right', True)
+
+        zone_top_left = self.get_parameter('zone_top_left').value
+        zone_top_right = self.get_parameter('zone_top_right').value
+        zone_bottom_left = self.get_parameter('zone_bottom_left').value
+        zone_bottom_right = self.get_parameter('zone_bottom_right').value
+
+        # Initialize zones
+        self.zones = {}
+        if zone_top_left:
+            self.zones[ZoneLocation.TOP_LEFT] = Zone(ZoneLocation.TOP_LEFT, 2.57, 2.5)
+        if zone_top_right:
+            self.zones[ZoneLocation.TOP_RIGHT] = Zone(ZoneLocation.TOP_RIGHT, 2.57, -2.46)
+        if zone_bottom_right:
+            self.zones[ZoneLocation.BOTTOM_RIGHT] = Zone(ZoneLocation.BOTTOM_RIGHT, -3.42, -2.46)
+        if zone_bottom_left:
+            self.zones[ZoneLocation.BOTTOM_LEFT] = Zone(ZoneLocation.BOTTOM_LEFT, -3.42, 2.5)
+
         self.nav_to_pose_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
 
-
-        self.declare_parameter('x', 0.0)
+        self.yaw = 0.0
+        self.declare_parameter('x', -3.5)
         self.declare_parameter('y', 0.0)
         self.declare_parameter('yaw', 0.0)
 
@@ -52,6 +102,20 @@ class RobotController(Node):
         self.get_logger().info(f"Received {len(msg.data)} zones from ZoneSensor.")
         self.current_zones = msg.data
         self.zones_received = True  # 标志收到区域数据
+
+    def odom_callback(self, msg):
+        self.pose = msg.pose.pose  # Store the pose in a class variable
+
+        # Uses tf_transformations package to convert orientation from quaternion to Euler angles (RPY = roll, pitch, yaw)
+        # https://github.com/DLu/tf_transformations
+        #
+        # Roll (rotation around X axis) and pitch (rotation around Y axis) are discarded
+        (roll, pitch, yaw) = euler_from_quaternion([self.pose.orientation.x,
+                                                    self.pose.orientation.y,
+                                                    self.pose.orientation.z,
+                                                    self.pose.orientation.w])
+
+        self.yaw = yaw  # Store the yaw in a class variable
 
     def item_pickup(self, robot_id):
         if not self.pick_up_client.wait_for_service(timeout_sec=1.0):
@@ -83,6 +147,8 @@ class RobotController(Node):
             self.get_logger().error("NavigateToPose action server not available!")
             return False
 
+        x = float(x)
+        y = float(y)
         # 设置目标位姿
         goal_pose = PoseStamped()
         goal_pose.header.frame_id = 'map'  # 使用地图坐标系
