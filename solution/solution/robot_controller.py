@@ -1,350 +1,194 @@
+from enum import IntEnum
 import math
+import random
 import sys
+import time
 
 import rclpy
 from rclpy.node import Node
+from rclpy.action import ActionClient
 from rclpy.signals import SignalHandlerOptions
 from rclpy.executors import ExternalShutdownException
-from rclpy.action import ActionClient
-from nav2_msgs.action import NavigateToPose
-from sensor_msgs.msg import LaserScan,CameraInfo
-from tf2_geometry_msgs import do_transform_pose_stamped
-from tf2_ros import Buffer, TransformListener
-from tf2_ros import LookupException, ExtrapolationException
+from nav_msgs.msg import Odometry
+from nav2_msgs.action import Spin 
+from tf2_ros import TransformListener, Buffer
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
+from geometry_msgs.msg import TransformStamped
 from geometry_msgs.msg import PoseStamped
 from auro_interfaces.srv import ItemRequest
-from assessment_interfaces.msg import ItemList, ZoneList
+from assessment_interfaces.msg import  ZoneList,ItemList
 from rclpy.duration import Duration
-import numpy as np
+
+from tf_transformations import euler_from_quaternion
 
 class RobotController(Node):
 
-
     def __init__(self):
         super().__init__('robot_controller')
-
-        self.declare_parameter('robot_id', 'robot1')
-        self.robot_id = self.get_parameter('robot_id').value
         
         self.pick_up_client = self.create_client(ItemRequest, '/pick_up_item')
         self.offload_client = self.create_client(ItemRequest, '/offload_item')
 
+        self.odom_subsrciber = self.create_subscription(Odometry,'odom',self.odom_callback,10)
         self.item_subscriber = self.create_subscription(ItemList, 'items', self.item_callback, 10)
         self.zone_subscriber = self.create_subscription(ZoneList, 'zone', self.zone_callback, 10)
-        # self.lidar_subscriber = self.create_subscription(LaserScan,'scan',self.scan_callback,10)
-        self.camera_subscriber = self.create_subscription(CameraInfo,'/robot1/camera/camera_info',self.camera_info_callback,10)
-        # self.image_subscriber = self.create_subscription(Image,'/robot1/camera/image_raw',self.image_callback,10)
-        self.current_items = []
+        random.seed()
+        self.currect_items = []
         self.current_zones = []
-
-        self.nav_to_pose_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
-
-        self.declare_parameter('x', 0.0)
+        self.zone_init_flag = False
+        self.spin_action_client = ActionClient(self, Spin, 'spin')
+        self.declare_parameter('x', -3.5)
         self.declare_parameter('y', 0.0)
         self.declare_parameter('yaw', 0.0)
+        self.declare_parameter('robot_id', 'robot1')
 
         self.initial_x = self.get_parameter('x').get_parameter_value().double_value
-        self.initial_y = self.get_parameter('y').get_parameter_value().double_value
+        self.initial_y =  self.get_parameter('y').get_parameter_value().double_value
         self.initial_yaw = self.get_parameter('yaw').get_parameter_value().double_value
+        self.robot_id = self.get_parameter('robot_id').value
         self.set_init_pose_flag = False
-        
+
+        self.navigator = BasicNavigator()
+
         self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
-
-        self.camera_matrix = None
-
-
-
+        # self.tf_buffer = Buffer(cache_time=rclpy.duration.Duration(seconds=30.0))
+        self.tf_listener = TransformListener(self.tf_buffer, self)  
+        # init
         
+        self.loop = 1
+        self.item_held = None
+        self.navTo_item_flag = False
+        self.navTo_zone_flag = False
+        self.currect_target = {}
+        self.pos_x = self.initial_x
+        self.pos_y = self.initial_y
+        self.yaw =  self.initial_yaw
+        self.navigator.waitUntilNav2Active()
+        self.get_logger().info(f"\t初始化完成\t")
+
+
+        self.zones = {
+            'TOP_RIGHT': {'c':None,'wx': 2.35, 'wy': -2.5,'ww':1.0},      # 右上角
+            'TOP_LEFT': {'c':None,'wx': 2.35, 'wy': 2.35,'ww':1.0},     # 左上角
+            'BUT_LEFT': {'c':None,'wx': -3.25, 'wy': 2.35,'ww':1.0}, # 左下角
+            'BUT_RIGHT': {'c':None,'wx': -3.25, 'wy': -2.35,'ww':1.0}       # 左下角
+        }
+
         self.timer_period = 0.1 # 100 milliseconds = 10 Hz
         self.timer = self.create_timer(self.timer_period, self.control_loop)
-
-    def scan_callback(self,msg):
-        """
-        处理激光扫描数据，筛选有效方向并计算目标位置
-        """
-        try:
-            # 打印激光扫描的角度范围
-            #self.get_logger().info(f"Laser scan angle range: {np.degrees(msg.angle_min)}° to {np.degrees(msg.angle_max)}°")
-
-            # 假设物体的角度范围
-            object_angle_min = 30.0  # 最小角度
-            object_angle_max = 40.0  # 最大角度
-
-            # 转换角度范围为索引
-            angle_increment = msg.angle_increment
-            angle_min = msg.angle_min
-            index_min = int((np.radians(object_angle_min) - angle_min) / angle_increment)
-            index_max = int((np.radians(object_angle_max) - angle_min) / angle_increment)
-
-            # 确保索引范围有效
-            index_min = max(0, index_min)
-            index_max = min(len(msg.ranges), index_max)
-
-            # 提取目标范围的距离数据
-            ranges = np.array(msg.ranges)
-            ranges[ranges == float('inf')] = np.nan  # 将无穷大替换为 NaN
-            object_ranges = ranges[index_min:index_max]
-
-            # 打印目标范围的激光距离值
-           # self.get_logger().info(f"Target distances (raw): {object_ranges}")
-
-            # 筛选有效值
-            valid_object_ranges = object_ranges[~np.isnan(object_ranges)]
-            #self.get_logger().info(f"Valid target distances: {valid_object_ranges}")
-
-            # 如果没有有效数据，则跳过处理
-            if len(valid_object_ranges) == 0:
-                self.get_logger().warning("No valid points detected in the target range.")
-                return
-
-            # 计算目标点的平均距离
-            target_distance = np.nanmean(valid_object_ranges)
-
-            # 计算目标点在雷达坐标系中的角度
-            object_angle = (index_min + index_max) / 2 * angle_increment + angle_min
-
-            # 转换为雷达坐标系下的 (x, y)
-            x_lidar = target_distance * np.cos(object_angle)
-            y_lidar = target_distance * np.sin(object_angle)
-
-            # 打印目标在雷达坐标系中的位置
-            self.get_logger().info(f"Target position in lidar frame: ({x_lidar:.2f}, {y_lidar:.2f})")
-
-            # 构造 PoseStamped
-            pose_in_lidar = PoseStamped()
-            pose_in_lidar.header.frame_id = 'robot1/base_scan'
-            pose_in_lidar.header.stamp = self.get_clock().now().to_msg()
-            pose_in_lidar.pose.position.x = x_lidar
-            pose_in_lidar.pose.position.y = y_lidar
-            pose_in_lidar.pose.position.z = 0.0
-            pose_in_lidar.pose.orientation.w = 1.0
-
-            # 转换到世界坐标系
-            pose_in_map = self.lidar_transform_pose(pose_in_lidar)
-
-            if pose_in_map:
-                wx = pose_in_map.pose.position.x
-                wy = pose_in_map.pose.position.y
-                wz = pose_in_map.pose.position.z
-                self.get_logger().info(f"World coordinates: ({wx:.2f}, {wy:.2f}, {wz:.2f}),Naving")
-
-        except Exception as e:
-                self.get_logger().error(f"Error processing scan data: {e}")
-
-    def camera_info_callback(self, msg: CameraInfo):
-        """
-        获取相机内参矩阵
-        """
-        self.camera_matrix = np.array(msg.k).reshape(3, 3)
-        # self.get_logger().info(f"Camera matrix received:\n{self.camera_matrix}")
-
-    def estimate_depth(self, u, v, pixel_diameter, actual_diameter):
-        """
-        通过小球直径估算深度，并计算相机坐标
-        """
-        if self.camera_matrix is None:
-            self.get_logger().warning("Camera info not received yet.")
-            return None
-
-        # 提取相机内参
-        fx = self.camera_matrix[0, 0]  # 焦距 (水平)
-        fy = self.camera_matrix[1, 1]  # 焦距 (垂直)
-        cx = self.camera_matrix[0, 2]  # 主点 (水平)
-        cy = self.camera_matrix[1, 2]  # 主点 (垂直)
-
-        # 计算深度 Z
-        Z = (fx * actual_diameter) / pixel_diameter
-        self.get_logger().info(f"Estimated depth Z: {Z:.2f} meters")
-
-        # 计算相机坐标 (X, Y, Z)
-        X = (u - cx) * Z / fx
-        Y = (v - cy) * Z / fy
-
-        self.get_logger().info(f"Camera coordinates: (X: {X:.2f}, Y: {Y:.2f}, Z: {Z:.2f})")
-
-        return X, Y, Z
-
-    def convert_to_world_coordinates(self, x, y, z):
-        """
-        如果需要将相机坐标 (X, Y, Z) 转换为世界坐标，可以通过 TF 实现。
-        """
-        pose_in_camera = PoseStamped()
-        pose_in_camera.header.frame_id = 'camera_link'
-        pose_in_camera.pose.position.x = x
-        pose_in_camera.pose.position.y = y
-        pose_in_camera.pose.position.z = z
-        pose_in_camera.pose.orientation.w = 1.0  # 无旋转
-
-        # TODO: 使用 TF 转换到世界坐标系
-        pass
-
+    
     def item_callback(self,msg):
-        # self.get_logger().info(f"Received {len(msg.data)} items from ItemSensor.")
-        self.current_items = msg.data  # 存储物品列表
+        #self.get_logger().info(f"Received {len(msg.data)} items from ItemSensor.")
+        self.currect_items = msg.data # 存储物品列表
 
     def zone_callback(self,msg):
         # self.get_logger().info(f"Received {len(msg.data)} items from ZoneSensor.")
         self.current_zones = msg.data
 
-
+    def odom_callback(self, msg):
+        (roll, pitch, yaw) = euler_from_quaternion([msg.pose.pose.orientation.x,
+                                                    msg.pose.pose.orientation.y,
+                                                    msg.pose.pose.orientation.z,
+                                                    msg.pose.pose.orientation.w])
+        
+        self.pos_x = msg.pose.pose.position.x + self.initial_x
+        self.pos_y = msg.pose.pose.position.y + self.initial_y
+        
+        self.yaw = -math.degrees(yaw)
+        if self.yaw < 0:
+            self.yaw += 360 #normalise to 0-360 to act as a bearing
+    
     def item_pickup(self, robot_id):
-        if not self.pick_up_client.wait_for_service(timeout_sec=1.0):
+        if not self.pick_up_client.wait_for_service(timeout_sec=3.0):
             self.get_logger().error("Pick-up service not available.")
             return
 
         requests = ItemRequest.Request()
         requests.robot_id = robot_id
         log = self.pick_up_client.call_async(requests)
-
-        if log.result() is not None:
-            self.get_logger().info(f"Pick-up result: {log.result().success}")
-        else:
-            self.get_logger().error("Failed to call pick-up service.")
         return log
         
     def item_offload(self, robot_id):
+        if not self.offload_client.wait_for_service(timeout_sec=3.0):
+            self.get_logger().error("Offload service not available.")
+            # return
         requests = ItemRequest.Request()
         requests.robot_id = robot_id
         log = self.offload_client.call_async(requests)
         return log
-
-    def initial_robot_pose(self,x,y,yaw):
-        navigator = BasicNavigator()
+    
+    def initial_robot_pose(self):
         initial_pose = PoseStamped()
         initial_pose.header.frame_id = 'map'
-        initial_pose.header.stamp = navigator.get_clock().now().to_msg()
-        initial_pose.pose.position.x = x
-        initial_pose.pose.position.y = y
-        navigator.setInitialPose(initial_pose)
+        #initial_pose.header.stamp = navigator.get_clock().now().to_msg()
+
+        initial_pose.header.stamp.sec = 0
+        initial_pose.header.stamp.nanosec = 0
+
+        initial_pose.pose.position.x = self.initial_x
+        initial_pose.pose.position.y = self.initial_y
+        initial_pose.pose.orientation.w = 1.0
+        self.navigator.setInitialPose(initial_pose)
         self.set_init_pose_flag = True
 
-    def nav_to_pose(self,x,y,z):
+    def nav_to_pose(self,goal):
         """
-              导航到指定位置 (x, y, yaw)。
-              """
-
-        # 等待导航动作服务器可用
-        if not self.nav_to_pose_client.wait_for_server(timeout_sec=5.0):
-            self.get_logger().error("NavigateToPose action server not available!")
-            return False
-        navigator = BasicNavigator()
-        # 等待导航启动完成
-        navigator.waitUntilNav2Active()
-
+        导航到指定位置 (x, y, z)。
+        """
         # 设置目标位姿
         goal_pose = PoseStamped()
         goal_pose.header.frame_id = 'map'
-        goal_pose.header.stamp = navigator.get_clock().now().to_msg()
-        goal_pose.pose.position.x = x
-        goal_pose.pose.position.y = y
-        goal_pose.pose.position.z = z
-        goal_pose.pose.orientation.w = 1.0
-
+        goal_pose.header.stamp = self.navigator.get_clock().now().to_msg()
+        goal_pose.pose.position.x = goal['wx']
+        goal_pose.pose.position.y = goal['wy']
+        goal_pose.pose.position.z = 1.0
+        goal_pose.pose.orientation.w = goal['ww']
+        
+        self.get_logger().info(f"\n----------------x = {goal['wx']}, y = {goal['wy']}--------------\n")
         # 创建导航目标请求
-        navigator.goToPose(goal_pose)
-        while not navigator.isTaskComplete():
-            feedback = navigator.getFeedback()
-            navigator.get_logger().info(
-                f'预计: {Duration.from_msg(feedback.estimated_time_remaining).nanoseconds / 1e9} s 后到达')
+        self.navigator.goToPose(goal_pose)
+
+
+        while not self.navigator.isTaskComplete():
+            feedback = self.navigator.getFeedback()
+            # self.navigator.get_logger().info(
+            #     f'预计: {Duration.from_msg(feedback.estimated_time_remaining).nanoseconds / 1e9} s 后到达')
             # 超时自动取消
             if Duration.from_msg(feedback.navigation_time) > Duration(seconds=600.0):
-                navigator.cancelTask()
+                self.navigator.cancelTask()
         # 最终结果判断
-        result = navigator.getResult()
-        if result == TaskResult.SUCCEEDED:
-            navigator.get_logger().info('导航结果：成功')
-        elif result == TaskResult.CANCELED:
-            navigator.get_logger().warn('导航结果：被取消')
-        elif result == TaskResult.FAILED:
-            navigator.get_logger().error('导航结果：失败')
-        else:
-            navigator.get_logger().error('导航结果：返回状态无效')
-        
+        result = self.navigator.getResult()
         return result
-
-    def transform_pose(self,x,y):
-      # 构造一个 PoseStamped，以 camera_link 为参考坐标系
-        pose_in_camera = PoseStamped()
-        pose_in_camera.header.frame_id = 'robot1/camera_link'
-        pose_in_camera.header.stamp = self.get_clock().now().to_msg()
-        pose_in_camera.pose.position.x = x
-        pose_in_camera.pose.position.y = y
-        pose_in_camera.pose.position.z = 0.0
-        pose_in_camera.pose.orientation.x = 0.0
-        pose_in_camera.pose.orientation.y = 0.0
-        pose_in_camera.pose.orientation.z = 0.0
-        pose_in_camera.pose.orientation.w = 1.0
-
-        target_frame = 'map'
-        source_frame = 'camera_link'
-
-        try:
-            # 等待 TF 缓冲区中加载完变换
-            can_tf = self.tf_buffer.can_transform(
-            target_frame,
-            source_frame,
-            rclpy.time.Time(),  # 使用最新可用时间
-            timeout=rclpy.duration.Duration(seconds=3.0)  # 等待3秒
-            )
-            if not can_tf:
-                self.get_logger().error(f"Transform from {source_frame} to {target_frame} not available after 3s.")
-                return
-
-            transform = self.tf_buffer.lookup_transform(
-                target_frame,
-                source_frame,
-                rclpy.time.Time()
-            )
-            # 使用 do_transform_pose 进行坐标变换
-            pose_in_map = do_transform_pose_stamped(pose_in_camera, transform)
-
-            # 输出结果
-            wx = pose_in_map.pose.position.x
-            wy = pose_in_map.pose.position.y
-            wz = pose_in_map.pose.position.z
-            
-
-            self.get_logger().info(f"Pose in map: ({wx:.2f}, {wy:.2f}, {wz:.2f}), Waiting to Nav")
-
-            #self.nav_to_pose(wx,wy,wz)
-        except (LookupException, ExtrapolationException) as e:
-            self.get_logger().error(f"Transform not available: {str(e)}")
-            return wx,wy,wz
-
-    def lidar_transform_pose(self,pose_in_lidar:PoseStamped):
-        """
-        使用 TF 将 PoseStamped 从雷达坐标系转换到世界坐标系
-        """
-        try:
-            # 从 TF 中获取变换
-            transform = self.tf_buffer.lookup_transform(
-                'map',        # 目标坐标系
-                'base_scan', # 雷达坐标系
-                rclpy.time.Time()    # 最新时间
-            )
-            # 执行变换
-            pose_in_map = do_transform_pose_stamped(pose_in_lidar, transform)
-            wx = pose_in_map.pose.position.x
-            wy = pose_in_map.pose.position.y
-            wz = pose_in_map.pose.position.z
-            self.get_logger().info(f"World coordinates: ({wx:.2f}, {wy:.2f}, {wz:.2f})")
-            return pose_in_map
-        except Exception as e:
-            self.get_logger().error(f"Lidar TF transform error: {e}")
-            return None
+        # self.item_pickup()
         
-    # unsure
+    def find_ball_position(self, ball):
+        currect_target = {}
+        estimated_distance = (69.0 * (float(ball.diameter) ** -0.89)) + 0.1 #aims further then nessessary
+        ball_x_mult = (0.003 * estimated_distance) + 0.085 #since camera is mounted near front mult changes with distance
+        angle_diff = -ball_x_mult * ball.x
+        estimated_angle = self.yaw + angle_diff
+            
+        x = estimated_distance * math.cos(math.radians(estimated_angle)) #x is positive towards 0 degrees?!
+        y = estimated_distance * -math.sin(math.radians(estimated_angle)) #y is positive towards 90 degrees?!
+
+        currect_target['colour'] = ball.colour
+        currect_target['wx'] = x + (self.pos_x)
+        currect_target['wy'] = y + self.pos_y
+        currect_target['ww'] = estimated_angle
+        self.get_logger().info(f"Item.x{x:2f}, Item.y{y:2f},Item.w{estimated_angle:2f}")
+        self.get_logger().info(f"currect_item:{currect_target}")
+        return currect_target
+        # 返回至enact
+
     def find_closest_item(self):
-        if not self.current_items:
+        if not self.currect_items:
             self.get_logger().info("No items available to find the closest one.")
             return None
 
         min_distance = float('inf')
         closest_item = None
 
-        for item in self.current_items:
+        for item in self.currect_items:
             # 计算物品到机器人的距离
             distance = math.sqrt(item.x ** 2 + item.y ** 2)
             self.get_logger().info(
@@ -356,51 +200,235 @@ class RobotController(Node):
                 closest_item = item
 
         self.get_logger().info(
-            f"Closest item - Colour: {closest_item.colour}, Distance: {min_distance:.2f}"
+            f"Closest item: {closest_item}"
         )
         return closest_item
 
+    def navTo_ball(self,currect_target):
+        item_result = self.nav_to_pose(currect_target)
+        if item_result == TaskResult.SUCCEEDED:
+            self.navTo_item_flag = True
+            pick_result = self.item_pickup(self.robot_id)
+            if pick_result.result() is not None:
+                return True
+                #self.get_logger().info(f"Pick-up result: {pick_result.result().success}")
+            else:
+                self.get_logger().error("Failed to call pick-up service.")
+                return False
+        else:
+            return False
+        
+    def navTo_zone(self,currect_target):
+        #拿颜色
+        target_colour = currect_target['colour'] 
+        #检查颜色是否可以,并返回zone
+        checked_zone = self.check_zone_available(target_colour)
+
+        if not checked_zone:  # 如果没有可用的区域
+            self.get_logger().error(f"No available zone for colour: {target_colour}")
+            return False
+
+        zone_name, zone_data = list(checked_zone.items())[0]  # 拿到第一个被分配的区域
+        self.get_logger().info(f"Assigned Zone: {zone_name}, Data: {zone_data}")
+
+        zone_target = zone_data
+
+        self.get_logger().info(f"Zone Pose:{zone_target}")
+        zone_result = self.nav_to_pose(zone_target)
+        if zone_result == TaskResult.SUCCEEDED:
+            self.navTo_zone_flag = True
+            offload_result = self.item_offload(self.robot_id)
+            if offload_result.result() is not None:
+                return True
+                #self.get_logger().info(f"Pick-up result: {offload_result.result().success}")
+            else:
+                self.get_logger().error("Failed to call offload service.")  
+                return False
+            
+    def naving_loop(self,target):
+        self.get_logger().info(f"中转值为：{target}")
+        self.navTo_ball(target)
+        self.navTo_zone(target)
+        
+
+    def get_robot_pose_tf2(self):
+        try:
+            transform: TransformStamped = self.tf_buffer.lookup_transform(
+                'map', 'base_link', rclpy.time.Time())
+            
+            self.pos_x = transform.transform.translation.x
+            self.pos_y = transform.transform.translation.y
+            self.yaw = transform.transform.rotation.w
+            self.get_logger().info(f"TF2 Position: x={self.pos_x}, y={self.pos_y}")
+        except Exception as e:
+            self.get_logger().error(f"Failed to get robot pose via tf2: {e}")
+        
+    def enact_bot(self):
+            self.loop += 1
+            self.get_logger().info(f"第 {self.loop} 个循环")
+            self.find_another_target()
+            # 接收到返回坐标
+            finded_target = self.find_ball_position(self.find_closest_item())
+            # 中转导航
+            self.naving_loop(finded_target)
+            self.get_logger().info(f"清空中，正在初始化下次循环")
+            self.cleanup()
+
+    def cleanup(self):
+        self.navTo_item_flag = False
+        self.navTo_zone_flag = False
+        self.currect_items = []
+
+    def spin(self):
+        if not self.spin_action_client.wait_for_server(timeout_sec=5.0):
+            self.get_logger().error("Spin action server not available!")
+            return
+
+        # 随机生成旋转角度（3 到 6 度）
+        angle = random.uniform(3.0,6.0)
+        goal = Spin.Goal()
+        goal.target_yaw = angle
+
+        # 发送目标并等待结果
+        self.get_logger().info(f"Requesting spin: {angle:.2f} degrees")
+        goal_handle = self.spin_action_client.send_goal(goal).result()
+
+        if not goal_handle.accepted:
+            self.get_logger().error("Spin goal was rejected.")
+            return False
+
+        # 等待结果
+        self.get_logger().info("Spin goal accepted. Waiting for result...")
+        result_future = goal_handle.get_result_async()
+        rclpy.spin_until_future_complete(self, result_future)  # 等待完成
+
+        try:
+            result = result_future.result().result
+            self.get_logger().info(f"Spin completed successfully in {result.total_elapsed_time.sec} seconds.")
+            return True
+        except Exception as e:
+            self.get_logger().error(f"Spin failed: {e}")
+            return False
+    
+    def random_test(self): # only for test
+        # 创建独立的随机数生成器
+        for _ in range(3):
+            print("Iteration start")
+            checked_zone = self.check_zone_available("RED")
+            print(f"Checked zone: {checked_zone}")
+            print("-" * 30)
+
+    def spin_response_callback(self,future):
+        goal_handle = future.result()
+        if not goal_handle.accepted:
+            self.get_logger().error("Spin goal rejected.")
+            return
+
+        self.get_logger().info("Spin goal accepted. Waiting for result...")
+        result_future = goal_handle.get_result_async()
+        result_future.add_done_callback(self.spin_result_callback)
+    
+    def spin_result_callback(self,future):
+        try:
+            result = future.result().result
+            self.get_logger().info(f"Spin completed successfully in {result.total_elapsed_time.sec} seconds.")
+        except Exception as e:
+            self.get_logger().error(f"Spin failed: {e}")
+
+    def cancel_callback(self, goal_handle):
+
+        self.get_logger().info("Received request to cancel goal.")
+        if goal_handle.is_active:
+            goal_handle.canceled()
+            return rclpy.action.CancelResponse.ACCEPT
+        else:
+            return rclpy.action.CancelResponse.REJECT
+        
+    #TODO
+    def find_another_target(self):
+        noitem = True
+        while noitem:
+            if not self.currect_items:
+                self.get_logger().info("Waiting for items to be detected...,Spining")
+                
+                target = self.spin()
+                if target:
+                    return
+                else:
+                    self.get_logger().info(f"spin error -from FAT")
+            else:
+                noitem = False
+        return
+
+                 
+    def check_zone_available(self, colour):
+        """
+        查找并分配目标颜色的区域。
+        如果找到已有颜色的区域，直接返回。
+        如果没有找到，则分配目标颜色到第一个未分配的区域。
+        最终返回一个包含分配或找到区域的 `checked_zone`。
+        """
+        checked_zone = {}  # 用于记录被修改的区域
+        zone_names = random.sample(list(self.zones.keys()), len(self.zones))  # 随机化顺序
+
+        for zone_name in zone_names:  # 使用随机化后的区域顺序
+            zone_data = self.zones[zone_name]
+
+            # 优先查找相同颜色的区域
+            if zone_data['c'] == colour:  # 如果找到已有颜色
+                checked_zone[zone_name] = zone_data
+                self.get_logger().info(f"Found existing zone for colour '{colour}': {zone_name}")
+                return checked_zone  # 立即返回
+
+        # 如果没有找到相同颜色，再查找空闲区域
+        for zone_name in zone_names:  # 再次遍历区域
+            zone_data = self.zones[zone_name]
+            if zone_data['c'] is None:  # 如果找到空闲区域
+                zone_data['c'] = colour
+                checked_zone[zone_name] = zone_data
+                self.get_logger().info(f"Assigned colour '{colour}' to zone '{zone_name}'")
+                return checked_zone  # 返回分配的区域
+
+        # 如果没有找到可用区域
+        self.get_logger().error(f"No available zone for colour '{colour}'.")
+        return checked_zone  # 返回空的 `checked_zone`
+    
+    #on test
+    def print_zone(self):
+        for zone_name, zone_data in self.zones.items():
+            print(f"Zone: {zone_name}")
+            for key, value in zone_data.items():
+                print(f"  {key}: {value}")
+        print("-" * 30)  # 分隔线
 
     def control_loop(self):
-
         if not self.set_init_pose_flag:
-            self.get_logger().info(f"Initial pose - x: {self.initial_x}, y: {self.initial_y}, yaw: {self.initial_yaw}")
-            self.initial_robot_pose(self.initial_x,self.initial_y,self.initial_yaw)
-            return 
-        
-        if not self.current_zones:
-            self.get_logger().info("No zone detected.")
-            return
-
-        if not self.current_items:
-            self.get_logger().info("No items detected.")
+            self.initial_robot_pose()
             return
         
-        cloest_item = self.find_closest_item()
-        if cloest_item:
-            x,y,z = self.estimate_depth(cloest_item.x,cloest_item.y,cloest_item.diameter,0.1)
-            self.nav_to_pose(x,y,z)
+        while self.loop > 0:
+            self.get_logger().info(f"Starting navigation loop {self.loop}.")
+            self.enact_bot()
+            #self.spin()
+            # self.random_test()
+            break
+        self.get_logger().info("Waiting For next Item")
+    
+    def id_to_zone(self,id):
+        zone_mapping = {
+            0: 'TOP_RIGHT',
+            1: 'TOP_LEFT',
+            2: 'BUT_LEFT',
+            3: 'BUT_RIGHT'
+        }
+        return zone_mapping.get(id, None)
 
-        # for item in self.current_items:
-        #     self.get_logger().info(
-        #         f"{self.robot_id}:Item detected {item} - Colour: {item.colour}, X: {item.x}, Y: {item.y}, Diameter: {item.diameter}, Value: {item.value}"
-        #     )
-        # x = float(self.current_items[0].x)
-        # y = float(self.current_items[0].y)
-        # self.transform_pose(x,y)
-
-        #closest_item = self.find_closest_item()
-        # self.get_logger().info(f"closet item is {closest_item}")
-
-        # if closest_item:
-        #     navflag = self.nav_to_pose(closest_item.x.double_value, closest_item.y.double_value,1.0)
-        #     if navflag == TaskResult.SUCCEEDED:
-        #         self.get_logger().info(f"Arrive at cloest item")
-        #         self.item_pickup()
-        #self.nav_to_pose()
-
-
+        
     def destroy_node(self):
+        self.get_logger().info("Shutting down spin action server...")
+    # 确保所有目标被正确取消
+        if hasattr(self, '_action_server') and self._action_server:
+            self._action_server.destroy()
         super().destroy_node()
 
 
