@@ -29,11 +29,11 @@ class RobotController(Node):
         self.pick_up_client = self.create_client(ItemRequest, '/pick_up_item')
         self.offload_client = self.create_client(ItemRequest, '/offload_item')
 
-        self.odom_subsrciber = self.create_subscription(Odometry,'odom',self.odom_callback,10)
+        self.odom_subscriber = self.create_subscription(Odometry,'odom',self.odom_callback,10)
         self.item_subscriber = self.create_subscription(ItemList, 'items', self.item_callback, 10)
         self.zone_subscriber = self.create_subscription(ZoneList, 'zone', self.zone_callback, 10)
         random.seed()
-        self.currect_items = []
+        self.current_items = []
         self.current_zones = []
         self.zone_init_flag = False
         self.spin_action_client = ActionClient(self, Spin, 'spin')
@@ -51,15 +51,13 @@ class RobotController(Node):
         self.navigator = BasicNavigator()
 
         self.tf_buffer = Buffer()
-        # self.tf_buffer = Buffer(cache_time=rclpy.duration.Duration(seconds=30.0))
         self.tf_listener = TransformListener(self.tf_buffer, self)  
-        # init
-        
+
         self.loop = 1
         self.item_held = None
-        self.navTo_item_flag = False
-        self.navTo_zone_flag = False
-        self.currect_target = {}
+        self.nav_to_ball_flag = False
+        self.nav_to_zone_flag = False
+        self.current_target = {}
         self.pos_x = self.initial_x
         self.pos_y = self.initial_y
         self.yaw =  self.initial_yaw
@@ -79,7 +77,7 @@ class RobotController(Node):
     
     def item_callback(self,msg):
         #self.get_logger().info(f"Received {len(msg.data)} items from ItemSensor.")
-        self.currect_items = msg.data # 存储物品列表
+        self.current_items = msg.data # 存储物品列表
 
     def zone_callback(self,msg):
         # self.get_logger().info(f"Received {len(msg.data)} items from ZoneSensor.")
@@ -162,7 +160,7 @@ class RobotController(Node):
         # self.item_pickup()
         
     def find_ball_position(self, ball):
-        currect_target = {}
+        current_target = {}
         estimated_distance = (69.0 * (float(ball.diameter) ** -0.89)) + 0.1 #aims further then nessessary
         ball_x_mult = (0.003 * estimated_distance) + 0.085 #since camera is mounted near front mult changes with distance
         angle_diff = -ball_x_mult * ball.x
@@ -171,24 +169,24 @@ class RobotController(Node):
         x = estimated_distance * math.cos(math.radians(estimated_angle)) #x is positive towards 0 degrees?!
         y = estimated_distance * -math.sin(math.radians(estimated_angle)) #y is positive towards 90 degrees?!
 
-        currect_target['colour'] = ball.colour
-        currect_target['wx'] = x + (self.pos_x)
-        currect_target['wy'] = y + self.pos_y
-        currect_target['ww'] = estimated_angle
+        current_target['colour'] = ball.colour
+        current_target['wx'] = x + (self.pos_x)
+        current_target['wy'] = y + self.pos_y
+        current_target['ww'] = estimated_angle
         self.get_logger().info(f"Item.x{x:2f}, Item.y{y:2f},Item.w{estimated_angle:2f}")
-        self.get_logger().info(f"currect_item:{currect_target}")
-        return currect_target
+        self.get_logger().info(f"currect_item:{current_target}")
+        return current_target
         # 返回至enact
 
     def find_closest_item(self):
-        if not self.currect_items:
+        if not self.current_items:
             self.get_logger().info("No items available to find the closest one.")
             return None
 
         min_distance = float('inf')
         closest_item = None
 
-        for item in self.currect_items:
+        for item in self.current_items:
             # 计算物品到机器人的距离
             distance = math.sqrt(item.x ** 2 + item.y ** 2)
             self.get_logger().info(
@@ -204,10 +202,10 @@ class RobotController(Node):
         )
         return closest_item
 
-    def navTo_ball(self,currect_target):
-        item_result = self.nav_to_pose(currect_target)
+    def nav_to_ball(self,current_target):
+        item_result = self.nav_to_pose(current_target)
         if item_result == TaskResult.SUCCEEDED:
-            self.navTo_item_flag = True
+            self.nav_to_ball_flag = True
             pick_result = self.item_pickup(self.robot_id)
             if pick_result.result() is not None:
                 return True
@@ -218,9 +216,9 @@ class RobotController(Node):
         else:
             return False
         
-    def navTo_zone(self,currect_target):
+    def nav_to_zone(self,current_target):
         #拿颜色
-        target_colour = currect_target['colour'] 
+        target_colour = current_target['colour'] 
         #检查颜色是否可以,并返回zone
         checked_zone = self.check_zone_available(target_colour)
 
@@ -236,7 +234,7 @@ class RobotController(Node):
         self.get_logger().info(f"Zone Pose:{zone_target}")
         zone_result = self.nav_to_pose(zone_target)
         if zone_result == TaskResult.SUCCEEDED:
-            self.navTo_zone_flag = True
+            self.nav_to_zone_flag = True
             offload_result = self.item_offload(self.robot_id)
             if offload_result.result() is not None:
                 return True
@@ -245,10 +243,10 @@ class RobotController(Node):
                 self.get_logger().error("Failed to call offload service.")  
                 return False
             
-    def naving_loop(self,target):
+    def nav_loop(self,target):
         self.get_logger().info(f"中转值为：{target}")
-        self.navTo_ball(target)
-        self.navTo_zone(target)
+        self.nav_to_ball(target)
+        self.nav_to_zone(target)
         
 
     def get_robot_pose_tf2(self):
@@ -270,38 +268,44 @@ class RobotController(Node):
             # 接收到返回坐标
             finded_target = self.find_ball_position(self.find_closest_item())
             # 中转导航
-            self.naving_loop(finded_target)
+            self.nav_loop(finded_target)
             self.get_logger().info(f"清空中，正在初始化下次循环")
             self.cleanup()
 
     def cleanup(self):
-        self.navTo_item_flag = False
-        self.navTo_zone_flag = False
-        self.currect_items = []
+        self.nav_to_ball_flag = False
+        self.nav_to_zone_flag = False
+        self.current_items = []
 
     def spin(self):
-        if not self.spin_action_client.wait_for_server(timeout_sec=5.0):
+        """
+            使用 spin_once 等待 spin 动作完成
+            """
+        if not self.spin_action_client.wait_for_server(timeout_sec=10.0):
             self.get_logger().error("Spin action server not available!")
-            return
-
-        # 随机生成旋转角度（3 到 6 度）
-        angle = random.uniform(3.0,6.0)
+            return False
+        target_yaw = random.uniform(3.0,6.0)
         goal = Spin.Goal()
-        goal.target_yaw = angle
+        goal.target_yaw = target_yaw
 
-        # 发送目标并等待结果
-        self.get_logger().info(f"Requesting spin: {angle:.2f} degrees")
-        goal_handle = self.spin_action_client.send_goal(goal).result()
+        self.get_logger().info(f"Sending spin goal: {target_yaw:.2f} radians")
+        goal_future = self.spin_action_client.send_goal_async(goal)
+        rclpy.spin_once(self)  # 等待 goal 发送完成
 
+        goal_handle = goal_future.result()
         if not goal_handle.accepted:
-            self.get_logger().error("Spin goal was rejected.")
+            self.get_logger().error("Spin goal rejected!")
             return False
 
-        # 等待结果
         self.get_logger().info("Spin goal accepted. Waiting for result...")
         result_future = goal_handle.get_result_async()
-        rclpy.spin_until_future_complete(self, result_future)  # 等待完成
 
+        # 使用 spin_once 等待结果
+        while not result_future.done():
+            self.get_logger().info("Processing callbacks...")
+            rclpy.spin_once(self, timeout_sec=0.1)  # 每次检查回调队列
+
+        # 获取结果
         try:
             result = result_future.result().result
             self.get_logger().info(f"Spin completed successfully in {result.total_elapsed_time.sec} seconds.")
@@ -309,7 +313,7 @@ class RobotController(Node):
         except Exception as e:
             self.get_logger().error(f"Spin failed: {e}")
             return False
-    
+
     def random_test(self): # only for test
         # 创建独立的随机数生成器
         for _ in range(3):
@@ -318,37 +322,11 @@ class RobotController(Node):
             print(f"Checked zone: {checked_zone}")
             print("-" * 30)
 
-    def spin_response_callback(self,future):
-        goal_handle = future.result()
-        if not goal_handle.accepted:
-            self.get_logger().error("Spin goal rejected.")
-            return
-
-        self.get_logger().info("Spin goal accepted. Waiting for result...")
-        result_future = goal_handle.get_result_async()
-        result_future.add_done_callback(self.spin_result_callback)
-    
-    def spin_result_callback(self,future):
-        try:
-            result = future.result().result
-            self.get_logger().info(f"Spin completed successfully in {result.total_elapsed_time.sec} seconds.")
-        except Exception as e:
-            self.get_logger().error(f"Spin failed: {e}")
-
-    def cancel_callback(self, goal_handle):
-
-        self.get_logger().info("Received request to cancel goal.")
-        if goal_handle.is_active:
-            goal_handle.canceled()
-            return rclpy.action.CancelResponse.ACCEPT
-        else:
-            return rclpy.action.CancelResponse.REJECT
-        
     #TODO
     def find_another_target(self):
         noitem = True
         while noitem:
-            if not self.currect_items:
+            if not self.current_items:
                 self.get_logger().info("Waiting for items to be detected...,Spining")
                 
                 target = self.spin()
@@ -413,15 +391,6 @@ class RobotController(Node):
             # self.random_test()
             break
         self.get_logger().info("Waiting For next Item")
-    
-    def id_to_zone(self,id):
-        zone_mapping = {
-            0: 'TOP_RIGHT',
-            1: 'TOP_LEFT',
-            2: 'BUT_LEFT',
-            3: 'BUT_RIGHT'
-        }
-        return zone_mapping.get(id, None)
 
         
     def destroy_node(self):
