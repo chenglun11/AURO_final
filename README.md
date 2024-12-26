@@ -1,9 +1,9 @@
 <!-- PROJECT SHIELDS -->
 
-![GitHub Repo stars](https://img.shields.io/github/stars/chenglun11/AURO_final)
+<!-- ![GitHub Repo stars](https://img.shields.io/github/stars/chenglun11/AURO_final)
 ![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/chenglun11/AURO_final)
 ![GitHub Release](https://img.shields.io/github/v/release/chenglun11/AURO_final)
-![GitHub License](https://img.shields.io/github/license/chenglun11/AURO_final)
+![GitHub License](https://img.shields.io/github/license/chenglun11/AURO_final) -->
 
 <!-- PROJECT LOGO -->
 
