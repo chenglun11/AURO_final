@@ -56,6 +56,31 @@ def robot_controller_actions(context : LaunchContext):
 
     return actions
 
+def zone_manager_actions():
+    actions = []
+
+    group = GroupAction([
+
+            # PushRosNamespace(robot_name),
+            Node(
+                package='solution',
+                executable='zone_manager',
+                # prefix=['xfce4-terminal --tab --execute'], # Opens in new tab
+                # prefix=['xfce4-terminal --execute'], # Opens in new window
+                # prefix=['gnome-terminal --tab --execute'], # Opens in new tab
+                # prefix=['gnome-terminal --window --execute'], # Opens in new window
+                # prefix=['wt.exe --window 0 new-tab wsl.exe -e bash -ic'], # Opens in new tab
+                # prefix=['wt.exe wsl.exe -e bash -ic'], # Opens in new window
+                output='screen'),
+
+            # Node(
+            #     package='turtlebot3_gazebo',
+            #     executable='turtlebot3_drive',
+            #     output='screen'),   
+        ])
+    actions.append(group)
+    return actions
+
 def generate_launch_description():
 
     package_name = 'solution'
@@ -107,14 +132,14 @@ def generate_launch_description():
                           'visualise_sensors': 'false',
                           'odometry_source': 'ENCODER',
                           'sensor_noise': 'false',
-                          'use_rviz': 'true',
+                          'use_rviz': 'false',
                           'rviz_config': rviz_config,
                           'rviz_windows': rviz_windows,
                           'obstacles': 'true',
                           'item_manager': 'true',
                           'random_seed': random_seed,
                           'use_nav2': 'false',
-                          'headless': 'false',
+                          'headless': 'true',
                           'limit_real_time_factor': 'true',
                           'wait_for_items': 'false',
                           # 'extra_gazebo_args': '--verbose',
@@ -122,6 +147,7 @@ def generate_launch_description():
     )
 
     robot_controller_cmd = OpaqueFunction(function=robot_controller_actions)
+    zone_manager_cmd = OpaqueFunction(function=zone_manager_actions)
 
     data_logger_cmd = Node(
         package='solution',
@@ -150,6 +176,7 @@ def generate_launch_description():
 
     ld.add_action(assessment_cmd)
     ld.add_action(robot_controller_cmd)
+    #ld.add_action(zone_manager_cmd)
     ld.add_action(data_logger_cmd)
     ld.add_action(timeout_cmd)
 

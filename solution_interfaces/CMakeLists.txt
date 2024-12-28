@@ -12,8 +12,8 @@ find_package(builtin_interfaces REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 ament_export_dependencies(rosidl_default_runtime)
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "msg/Item.msg"  
-  "msg/ItemList.msg"
+  "msg/PushItem.msg"  
+  "msg/PushItemList.msg"
   "msg/Zone.msg"
   "msg/ZoneList.msg"
   DEPENDENCIES builtin_interfaces
