@@ -29,7 +29,8 @@ class RobotController(Node):
         self.pick_up_client = self.create_client(ItemRequest, '/pick_up_item')
         self.offload_client = self.create_client(ItemRequest, '/offload_item')
 
-        self.odom_subscriber = self.create_subscription(Odometry,'odom',self.odom_callback,10)
+        # 初始化订阅器和发布器
+        self.odom_subscriber = self.create_subscription(Odometry, 'odom', self.odom_callback, 10)
         self.item_subscriber = self.create_subscription(PushItemList, '/fixed_items', self.item_callback, 10)
         self.zone_subscriber = self.create_subscription(ZoneList, '/fixed_zones', self.zone_callback, 10)
         self.zone_activation_publisher = self.create_publisher(Zone, '/zone_activate', 10)
@@ -37,7 +38,7 @@ class RobotController(Node):
         self.current_items = []
         self.current_zones = {}
         self.spin_action_client = ActionClient(self, Spin, 'spin')
-        self.declare_parameter('x', -3.5)
+        self.declare_parameter('x', 0.0)
         self.declare_parameter('y', 0.0)
         self.declare_parameter('yaw', 0.0)
         self.declare_parameter('robot_id', 'robot1')
@@ -168,7 +169,7 @@ class RobotController(Node):
         y = estimated_distance * -math.sin(math.radians(estimated_angle)) #y is positive towards 90 degrees?!
         current_target['id'] = ball.id
         current_target['colour'] = ball.colour
-        current_target['wx'] = x + (self.pos_x)
+        current_target['wx'] = x + self.pos_x
         current_target['wy'] = y + self.pos_y
         current_target['ww'] = estimated_angle
         self.get_logger().info(f"Item.x{x:2f}, Item.y{y:2f},Item.w{estimated_angle:2f}")
@@ -176,15 +177,19 @@ class RobotController(Node):
         return current_target
         # 返回至enact
 
-    def find_closest_item(self):
+    def find_closest_item_OLD(self):
         if not self.current_items:
             self.get_logger().info("No items available.")
             return None
 
+        # 随机打乱物品列表，避免顺序影响选择
+        shuffled_items = random.sample(self.current_items, len(self.current_items))
+        self.get_logger().info(f"被打乱的item数据为：{shuffled_items}")
         closest_item = None
         min_distance = float('inf')
 
-        for item in self.current_items:
+        for item in shuffled_items:
+            
             if item.status != 'free':
                 continue
 
@@ -306,8 +311,9 @@ class RobotController(Node):
     def enact_bot_test(self):
             self.loop += 1
             self.get_logger().info(f"第 {self.loop} 个循环")
-
-            self.nav_loop()
+            #self.get_logger().info(f"初始位置： X：{self.initial_x}，Y：{self.initial_y} ")
+            #self.nav_loop()
+            self.find_ball_position(self.find_closest_item())
             
             self.get_logger().info(f"清空中，正在初始化下次循环")
             self.cleanup()
@@ -387,7 +393,7 @@ class RobotController(Node):
         
         while self.loop > 0:
             self.get_logger().info(f"Starting navigation loop {self.loop}.")
-            self.enact_bot()
+            self.enact_bot_test()
             #self.spin()
             # self.random_test()
             break
@@ -400,6 +406,49 @@ class RobotController(Node):
         if hasattr(self, '_action_server') and self._action_server:
             self._action_server.destroy()
         super().destroy_node()
+
+    def find_closest_item(self):
+        """
+        找到距离机器人最近的物品。
+        """
+        if not self.current_items:
+            self.get_logger().info("No items available.")
+            return None
+
+        # 打乱物品列表，避免固定顺序的影响
+        shuffled_items = random.sample(self.current_items, len(self.current_items))
+        self.get_logger().info(f"Shuffled items: {shuffled_items}")
+
+        closest_item = None
+        min_distance = float('inf')
+        MAX_DIAMETER = 50.0
+
+        for item in shuffled_items:
+            # 跳过非 free 状态的物品
+            if item.status != 'free':
+                self.get_logger().info(f"Skipping item {item.id}, status: {item.status}")
+                continue
+
+            # 计算物品与机器人的欧几里得距离
+            if item.diameter > 0:  # 避免除以零
+                distance = math.sqrt((item.x - self.pos_x) ** 2 + (item.y - self.pos_y) ** 2)* (MAX_DIAMETER / item.diameter)
+            self.get_logger().info(f"Item ID: {item.id}, Distance: {distance:.2f}, Position: ({item.x}, {item.y})")
+
+            # 如果当前物品距离更近，则更新最近物品
+            if distance < min_distance:
+                min_distance = distance
+                closest_item = item
+
+        # 如果找到最近物品，记录其信息
+        if closest_item:
+            self.get_logger().info(
+                f"Selected closest item: ID={closest_item.id}, Distance={min_distance:.2f}, Position=({closest_item.x}, {closest_item.y})"
+            )
+        else:
+            self.get_logger().info("No free items found.")
+
+        return closest_item
+
 
 
 def main(args=None):
