@@ -28,15 +28,20 @@ class zone_manager(Node):
     def publish_zones(self):
         msg = ZoneList()
         msg.zones = []
-        for name,data in self.zones.items():
-            zone = Zone()
-            zone.name = name
-            zone.wx = data['wx']
-            zone.wy = data['wy']
-            zone.ww = data['ww']
-            zone.fixed_colour = data['c']
-            zone.status = data['status']
-            msg.zones.append(zone)
+        for name, data in self.zones.items():
+            try:
+                zone = Zone()
+                zone.name = name
+                zone.wx = float(data['wx'])
+                zone.wy = float(data['wy'])
+                zone.ww = float(data['ww'])
+                zone.fixed_colour = data['c'] if data['c'] is not None else 'None'
+                zone.status = data['status'] if data['status'] is not None else 'unknown'
+                msg.zones.append(zone)
+            except KeyError as e:
+                self.get_logger().error(f"Zone data for {name} is missing key: {e}")
+            except ValueError as e:
+                self.get_logger().error(f"Zone data for {name} has invalid value: {e}")
 
         self.publisher.publish(msg)
         #self.get_logger().info(f"Published {msg}")

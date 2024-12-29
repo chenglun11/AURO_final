@@ -166,7 +166,7 @@ class RobotController(Node):
             
         x = estimated_distance * math.cos(math.radians(estimated_angle)) #x is positive towards 0 degrees?!
         y = estimated_distance * -math.sin(math.radians(estimated_angle)) #y is positive towards 90 degrees?!
-
+        current_target['id'] = ball.id
         current_target['colour'] = ball.colour
         current_target['wx'] = x + (self.pos_x)
         current_target['wy'] = y + self.pos_y
@@ -220,15 +220,25 @@ class RobotController(Node):
         return closest_item
 
     def activate_zone(self, zone_name, colour):
+        """
+        发布区域激活信息
+        """
+        if zone_name not in self.current_zones:
+            self.get_logger().error(f"Zone {zone_name} does not exist!")
+            return
+
+        zone_data = self.current_zones[zone_name]
         zone_msg = Zone(
             name=zone_name,
+            wx=zone_data['wx'],
+            wy=zone_data['wy'],
+            ww=zone_data['ww'],
             fixed_colour=colour,
             status='assigned'
         )
 
         self.zone_activation_publisher.publish(zone_msg)
-        self.get_logger().info(f"Activated zone {zone_name} for colour {colour}")
-
+        self.get_logger().info(f"Activated zone: {zone_name} for colour {colour}")
 
 
     def nav_to_ball(self,current_target):
@@ -272,20 +282,34 @@ class RobotController(Node):
                 self.get_logger().error("Failed to call offload service.")  
                 return False
             
-    def nav_loop(self,target,colour):
+    def nav_loop(self,target):
         self.get_logger().info(f"中转值为：{target}")
-        self.nav_to_ball(target)
-        self.nav_to_zone(colour)
+        #self.nav_to_ball(target)
+        #self.nav_to_zone(target)
+        self.check_zone_available(target)
         
-    def enact_bot(self):
+    def enact_bot_bp(self):
             self.loop += 1
             self.get_logger().info(f"第 {self.loop} 个循环")
             cloest_activate_item = self.activate_item()
-            cloest_activate_item_pose = self.find_ball_position(cloest_activate_item)
+            if cloest_activate_item:
+                cloest_activate_item_pose = self.find_ball_position(cloest_activate_item)
+                self.nav_loop(cloest_activate_item_pose)
+            else:    
+                self.spin()
             # 接收到返回坐标
             #finded_target = self.find_ball_position(self.find_closest_item())
             # 中转导航
-            self.nav_loop(cloest_activate_item_pose)
+            
+            self.get_logger().info(f"清空中，正在初始化下次循环")
+            self.cleanup()
+
+    def enact_bot(self):
+            self.loop += 1
+            self.get_logger().info(f"第 {self.loop} 个循环")
+
+            self.nav_loop('GREEN')
+            
             self.get_logger().info(f"清空中，正在初始化下次循环")
             self.cleanup()
 
@@ -329,25 +353,30 @@ class RobotController(Node):
         except Exception as e:
             self.get_logger().error(f"Spin failed: {e}")
             return False
-
-    def random_test(self): # only for test
-        # 创建独立的随机数生成器
-        for _ in range(3):
-            print("Iteration start")
-            checked_zone = self.check_zone_available("RED")
-            print(f"Checked zone: {checked_zone}")
-            print("-" * 30)
                  
     def check_zone_available(self, colour):
+        """
+        检查是否有已分配到指定颜色的区域，如果没有，则激活一个空闲区域。
+        """
+        # 首先查找已分配给指定颜色的区域
         for zone_name, zone_data in self.current_zones.items():
-            if zone_data['colour'] == colour:
+            self.get_logger().info(f"目前所有的Zone为:{zone_name},:{zone_data}1(type: {type(zone_data['colour'])}")
+            if zone_data['colour'].strip().lower() == colour.strip().lower():
                 self.get_logger().info(f"Zone {zone_name} already assigned to colour {colour}")
-                return zone_name
+                return zone_name  # 返回已分配区域的名称
 
+        # 查找未分配颜色的区域
         for zone_name, zone_data in self.current_zones.items():
-            if zone_data['colour'] is None:
-                self.activate_zone(zone_name, colour)
-                return zone_name
+            self.get_logger().info(f"目前所有的Zone为:{zone_name}, - colour: {repr(zone_data['colour'])}:{zone_data}2")
+            if zone_data['colour'].strip().lower() == 'none':
+                self.get_logger().info(f"Activating zone {zone_name} for colour {colour}")
+                self.activate_zone(zone_name, colour)  # 激活区域
+                return zone_name  # 返回新分配的区域名称
+
+        # 如果没有可用的区域
+        self.get_logger().error(f"No available zones for colour {colour}.")
+        return None
+
     
 
     def control_loop(self):
