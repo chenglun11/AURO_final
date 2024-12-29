@@ -56,7 +56,7 @@ def robot_controller_actions(context : LaunchContext):
 
     return actions
 
-def zone_manager_actions():
+def zone_manager_actions(context : LaunchContext):
     actions = []
 
     group = GroupAction([
@@ -81,6 +81,18 @@ def zone_manager_actions():
     actions.append(group)
     return actions
 
+def item_manager_actions(context : LaunchContext):
+    actions = []
+    group = GroupAction([
+        Node(
+            package='solution',
+            executable= 'item_manager',
+            output = 'screen'
+        )
+    ])
+    actions.append(group)
+    return actions
+
 def generate_launch_description():
 
     package_name = 'solution'
@@ -93,7 +105,7 @@ def generate_launch_description():
 
     declare_num_robots_cmd = DeclareLaunchArgument(
         'num_robots',
-        default_value='1',
+        default_value='2',
         description='Number of robots to spawn')
     
     declare_random_seed_cmd = DeclareLaunchArgument(
@@ -148,6 +160,7 @@ def generate_launch_description():
 
     robot_controller_cmd = OpaqueFunction(function=robot_controller_actions)
     zone_manager_cmd = OpaqueFunction(function=zone_manager_actions)
+    item_manager_cmd = OpaqueFunction(function=item_manager_actions)
 
     data_logger_cmd = Node(
         package='solution',
@@ -176,7 +189,8 @@ def generate_launch_description():
 
     ld.add_action(assessment_cmd)
     ld.add_action(robot_controller_cmd)
-    #ld.add_action(zone_manager_cmd)
+    ld.add_action(zone_manager_cmd)
+    ld.add_action(item_manager_cmd)
     ld.add_action(data_logger_cmd)
     ld.add_action(timeout_cmd)
 

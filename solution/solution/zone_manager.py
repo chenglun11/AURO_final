@@ -39,7 +39,7 @@ class zone_manager(Node):
             msg.zones.append(zone)
 
         self.publisher.publish(msg)
-        self.get_logger().info(f"Published {msg}")
+        #self.get_logger().info(f"Published {msg}")
 
     def zone_activation_callback(self,msg):
         if msg.name in self.zones:

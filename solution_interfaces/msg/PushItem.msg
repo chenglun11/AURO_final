@@ -1,3 +1,4 @@
+string id
 int16 x
 int16 y
 uint16 diameter
