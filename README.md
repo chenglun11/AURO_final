@@ -28,12 +28,13 @@
     <a href="https://github.com/chenglun11/AURO_final/issues">Report Bug</a>
     ·
     <a href="https://github.com/chenglun11/AURO_final/issues">Commit a Feature</a>
-    
-  </p>
+
+</p>
 
 </p>
 
 TOC
+
 - [Demo](#demo)
 - [Requirements](#requirements)
 - [Getting Started](#getting-started)
@@ -44,14 +45,14 @@ TOC
 - [License](#license)
 - [Contributors](#contributors)
 
-
 ### Demo
-1. Initialize the robot and acting 
-![initgif](./imgs/init_and_pick.gif)
-2. Find another target
-![repick](./imgs/repick.gif)
 
-### Requirements 
+1. Initialize the robot and acting
+   ![initgif](./imgs/init_and_pick.gif)
+2. Find another target
+   ![repick](./imgs/repick.gif)
+
+### Requirements
 
 1. [ROS2 Humble](https://docs.ros.org/en/humble/index.html)
 2. [ROS2 Navigation2](https://docs.nav2.org/#)
@@ -61,6 +62,7 @@ TOC
 6. Tf_transforms
 
 ### Getting Started
+
 1. install Requirements
 
 ```bash
@@ -117,40 +119,24 @@ filetree
 ### Features
 
 ### Version Control
+
 The project uses Git for version control. You can see the currently available versions in the repository.
 
 ### Author
+
 The Author detail is currectly unavailable duo to the policy of exam.
 
 *You can also see all the developers involved in the project in the contributors list.*
 
 ### License
+
 1. Package solution：Copyright (c) 2024 chenglun11 with [MIT License](https://github.com/chenglun11/AURO_final/blob/main/LICENSE)
 2. Package assessment: Copyright (c) 2024 University of York and others with ELP2.0
-
 
 ### Contributors
 
 **Thanks for every contributor and related package author**
+
 - Alan Millard - initial contributor
 - [Pedro Ribeiro](https://github.com/pefribeiro) - revised implementation
-- [Choose an Open Source License](https://choosealicense.com)
-- [GitHub Pages](https://pages.github.com)
-- [Animate.css](https://daneden.github.io/animate.css)
-- [xxxxxxxxxxxxxx](https://connoratherton.com/loaders)
 
-<!-- links -->
-
-[your-project-path]: shaojintian/Best_README_template
-[contributors-shield]: https://img.shields.io/github/contributors/shaojintian/Best_README_template.svg?style=flat-square
-[contributors-url]: https://github.com/shaojintian/Best_README_template/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/shaojintian/Best_README_template.svg?style=flat-square
-[forks-url]: https://github.com/shaojintian/Best_README_template/network/members
-[stars-shield]: https://img.shields.io/github/stars/shaojintian/Best_README_template.svg?style=flat-square
-[stars-url]: https://github.com/shaojintian/Best_README_template/stargazers
-[issues-shield]: https://img.shields.io/github/issues/shaojintian/Best_README_template.svg?style=flat-square
-[issues-url]: https://img.shields.io/github/issues/shaojintian/Best_README_template.svg
-[license-shield]: https://img.shields.io/github/license/shaojintian/Best_README_template.svg?style=flat-square
-[license-url]: https://github.com/shaojintian/Best_README_template/blob/master/LICENSE.txt
-[linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=flat-square&logo=linkedin&colorB=555
-[linkedin-url]: https://linkedin.com/in/shaojintian
