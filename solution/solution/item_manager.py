@@ -1,127 +1,150 @@
 import sys
+import math
 import rclpy
-import uuid
 from rclpy.node import Node
 from rclpy.qos import QoSProfile
-from assessment_interfaces.msg import Item, ItemList
-from solution_interfaces.msg import PushItem, PushItemList
-import hashlib
 from threading import Lock
+from assessment_interfaces.msg import ItemList
+from solution_interfaces.msg import PushItem, PushItemList
+from nav_msgs.msg import Odometry
 
 class ItemManager(Node):
     def __init__(self):
         super().__init__('item_manager')
+        self.robot_count = self.declare_parameter('robot_count', 2).get_parameter_value().integer_value
 
-        # 订阅器和发布器
-        self.item_upstream_subscription = self.create_subscription(
-            ItemList,
-            '/robot1/items',
-            self.item_callback,
-            QoSProfile(depth=10)
-        )
-        self.item_publisher = self.create_publisher(
-            PushItemList,
-            '/fixed_items',
-            QoSProfile(depth=10)
-        )
-        self.item_activation_subscription = self.create_subscription(
-            PushItem,
-            '/item_activate',
-            self.item_activation_callback,
-            QoSProfile(depth=10)
-        )
-
-        # 本地物品存储
         self.items = []  # 当前物品列表
-        self.assigned_items = {}  # 已分配的物品 (key: item.id, value: PushItem)
-        self.requests = []  # 激活请求队列
-        self.lock = Lock()  # 用于防止竞争条件的锁
+        self.robot_positions = {}  # 每个机器人的位置 {robot_id: (x, y)}
+        self.lock = Lock()  # 确保线程安全
+        self.robot_publishers = {}  # 每个机器人分配目标的发布器
 
-    def generate_unique_id(self, item):
+        # 初始化每个机器人的订阅和发布
+        for robot_id in range(1, self.robot_count + 1):
+            self.setup_robot(robot_id)
+
+        # 定时器用于检查并分配物品
+        self.create_timer(1.0, self.assign_items_to_robots)
+
+    def setup_robot(self, robot_id):
         """
-        基于物品的属性生成唯一标识符
+        设置每个机器人的订阅和发布
         """
-        data = f"{item.x}-{item.y}-{item.diameter}-{item.colour}"
-        return hashlib.md5(data.encode()).hexdigest()
+        robot_namespace = f'/robot{robot_id}'
 
-    def item_callback(self, msg):
+        # 订阅物品列表
+        self.create_subscription(
+            ItemList,
+            f'{robot_namespace}/items',
+            lambda msg, rid=robot_id: self.item_callback(msg, rid),
+            QoSProfile(depth=10)
+        )
+
+        # 订阅机器人位置
+        self.create_subscription(
+            Odometry,
+            f'{robot_namespace}/odom',
+            lambda msg, rid=robot_id: self.update_robot_position(msg, rid),
+            QoSProfile(depth=10)
+        )
+
+        # 创建发布器
+        publisher = self.create_publisher(
+            PushItemList,
+            f'{robot_namespace}/assign_items',
+            QoSProfile(depth=10)
+        )
+        self.robot_publishers[robot_id] = publisher
+
+    def update_robot_position(self, msg, robot_id):
         """
-        接收物品列表并更新内部存储
+        更新机器人位置
         """
-        updated_items = []
+        with self.lock:
+            position = msg.pose.pose.position
+            self.robot_positions[robot_id] = (position.x, position.y)
 
-        for upstream_item in msg.data:
-            # 生成唯一 ID
-            unique_id = self.generate_unique_id(upstream_item)
-
-            if unique_id in self.assigned_items:
-                updated_items.append(self.assigned_items[unique_id])
-                ##self.get_logger().info(f"Retaining assigned item: {unique_id}")
-            else:
-                item = PushItem()
-                item.id = unique_id
-                item.x = upstream_item.x
-                item.y = upstream_item.y
-                item.diameter = upstream_item.diameter
-                item.colour = upstream_item.colour
-                item.value = upstream_item.value
-                item.status = 'free'
-
-                updated_items.append(item)
-
-        self.items = updated_items
-        self.publish_items()
-
-    def item_activation_callback(self, msg):
+    def item_callback(self, msg, robot_id):
         """
-        激活物品并标记为已分配
+        更新当前物品列表
         """
-        with self.lock:  # 确保线程安全
-            if msg.id in self.assigned_items:
-                self.get_logger().warning(f"Item {msg.id} already assigned. Ignoring activation request.")
-                return  # 直接退出
+        with self.lock:
+            if not msg.data:
+                #self.get_logger().info(f"Robot {robot_id} provided an empty item list.")
+                self.items.clear()
+                return
 
-            for item in self.items:
-                if item.id == msg.id:
-                    if item.status == 'free':
-                        item.status = 'assigned'
-                        self.assigned_items[item.id] = item  # 将物品存入已分配字典
-                        self.items.remove(item)  # 从当前物品列表移除
-                        self.get_logger().info(f"Item {item.id} assigned and removed from active list.")
-                    else:
-                        self.get_logger().warning(f"Item {item.id} already assigned. Ignoring activation request.")
-                    break
-            else:
-                self.get_logger().warning(f"Item with ID {msg.id} not found.")
+            for item in msg.data:
+                if all(not self.is_duplicate(item, existing_item) for existing_item in self.items):
+                    self.items.append(item)
 
-            # 重新发布物品列表
-            self.publish_items()
+            #self.get_logger().info(f"Updated item list from robot {robot_id}. Total items: {len(self.items)}")
 
-    def publish_items(self):
+    def is_duplicate(self, item1, item2):
         """
-        发布当前未被分配的物品
+        判断两个物品是否重复
         """
-        item_list_msg = PushItemList()
-        item_list_msg.data = [item for item in self.items if item.status == 'free']
-        self.item_publisher.publish(item_list_msg)
-        #self.get_logger().info(f"Published {len(item_list_msg.data)} free items.")
+        return (
+            item1.x == item2.x and
+            item1.y == item2.y and
+            item1.diameter == item2.diameter and
+            item1.colour == item2.colour
+        )
 
-    def resolve_requests(self):
+    def convert_item_to_push_item(self, item):
         """
-        按请求队列处理物品激活请求
+        将 Item 转换为 PushItem
         """
-        while self.requests:
-            request = self.requests.pop(0)
-            self.item_activation_callback(request)
+        push_item = PushItem()
+        push_item.id = f"{item.x}-{item.y}-{item.diameter}-{item.colour}"
+        push_item.x = item.x
+        push_item.y = item.y
+        push_item.diameter = item.diameter
+        push_item.colour = item.colour
+        push_item.value = item.value
+        return push_item
 
-    def add_request(self, msg):
+    def assign_items_to_robots(self):
         """
-        添加激活请求到队列并尝试处理
+        为每个机器人分配最近的物品（基于距离和直径值）
         """
-        self.requests.append(msg)
-        #self.get_logger().info(f"Added activation request for item {msg.id} to queue.")
-        self.resolve_requests()
+        with self.lock:
+            if not self.items:
+                self.get_logger().info("No items available for assignment.")
+                return
 
+            for robot_id, robot_position in self.robot_positions.items():
+                closest_item = None
+                min_weighted_distance = float('inf')
+
+                # 遍历物品列表，寻找最优物品
+                for item in self.items:
+                    distance = self.calculate_distance(robot_position, (item.x, item.y))
+                    weighted_distance = distance / (item.diameter + 1e-6)  # 防止除以零
+
+                    if weighted_distance < min_weighted_distance:
+                        min_weighted_distance = weighted_distance
+                        closest_item = item
+
+                if closest_item:
+                    # 转换为 PushItem 并发布
+                    push_item = self.convert_item_to_push_item(closest_item)
+                    push_item_list = PushItemList()
+                    push_item_list.data.append(push_item)
+
+                    if robot_id in self.robot_publishers:
+                        self.robot_publishers[robot_id].publish(push_item_list)
+                        self.items.remove(closest_item)  # 从列表中移除已分配的物品
+                        self.get_logger().info(
+                            f"Assigned item {push_item.id} (diameter={push_item.diameter}) to robot {robot_id}."
+                        )
+                else:
+                    self.get_logger().info(f"No suitable items for robot {robot_id}.")
+
+    def calculate_distance(self, pos1, pos2):
+        """
+        计算两点之间的欧几里得距离
+        """
+        return math.sqrt((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)
 
 def main(args=None):
     rclpy.init(args=args)

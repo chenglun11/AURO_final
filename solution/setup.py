@@ -49,6 +49,7 @@ setup(
         'console_scripts': [
             'robot_controller = solution.robot_controller:main',
             'zone_manager = solution.zone_manager:main',
+            'ekf_pose = solution.ekf_pose:main',
             'item_manager = solution.item_manager:main',
             'data_logger = solution.data_logger:main',
         ],

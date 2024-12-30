@@ -58,40 +58,43 @@ def robot_controller_actions(context : LaunchContext):
 
 def zone_manager_actions(context : LaunchContext):
     actions = []
-
     group = GroupAction([
 
-            # PushRosNamespace(robot_name),
-            Node(
-                package='solution',
-                executable='zone_manager',
-                # prefix=['xfce4-terminal --tab --execute'], # Opens in new tab
-                # prefix=['xfce4-terminal --execute'], # Opens in new window
-                # prefix=['gnome-terminal --tab --execute'], # Opens in new tab
-                # prefix=['gnome-terminal --window --execute'], # Opens in new window
-                # prefix=['wt.exe --window 0 new-tab wsl.exe -e bash -ic'], # Opens in new tab
-                # prefix=['wt.exe wsl.exe -e bash -ic'], # Opens in new window
-                output='screen'),
+                Node(
+                    package='solution',
+                    executable='zone_manager',
+                    # prefix=['xfce4-terminal --tab --execute'], # Opens in new tab
+                    # prefix=['xfce4-terminal --execute'], # Opens in new window
+                    # prefix=['gnome-terminal --tab --execute'], # Opens in new tab
+                    # prefix=['gnome-terminal --window --execute'], # Opens in new window
+                    # prefix=['wt.exe --window 0 new-tab wsl.exe -e bash -ic'], # Opens in new tab
+                    # prefix=['wt.exe wsl.exe -e bash -ic'], # Opens in new window
+                    output='screen'),
 
-            # Node(
-            #     package='turtlebot3_gazebo',
-            #     executable='turtlebot3_drive',
-            #     output='screen'),   
-        ])
+                # Node(
+                #     package='turtlebot3_gazebo',
+                #     executable='turtlebot3_drive',
+                #     output='screen'),   
+            ])
     actions.append(group)
     return actions
 
 def item_manager_actions(context : LaunchContext):
+    
     actions = []
     group = GroupAction([
-        Node(
-            package='solution',
-            executable= 'item_manager',
-            output = 'screen'
-        )
+            Node(
+                package='solution',
+                executable= 'item_manager',
+                parameters=[
+                {"robot_count": int(context.launch_configurations['num_robots'])}
+            ],
+                output = 'screen'
+            )
     ])
     actions.append(group)
     return actions
+
 
 def generate_launch_description():
 

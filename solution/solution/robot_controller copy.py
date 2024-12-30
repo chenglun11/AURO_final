@@ -16,39 +16,38 @@ from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 from geometry_msgs.msg import TransformStamped
 from geometry_msgs.msg import PoseStamped
 from auro_interfaces.srv import ItemRequest
-from solution_interfaces.msg import Zone, ZoneList, PushItemList
+from solution_interfaces.msg import Zone, ZoneList, PushItem, PushItemList
 from rclpy.duration import Duration
-from auro_interfaces.msg import StringWithPose
+
 from tf_transformations import euler_from_quaternion
 
 class RobotController(Node):
 
     def __init__(self):
         super().__init__('robot_controller')
-        self.declare_parameter('x', -3.5)
+        self.declare_parameter('x', 0.0)
         self.declare_parameter('y', 0.0)
         self.declare_parameter('yaw', 0.0)
+        self.declare_parameter('robot_id', 'robot1')
 
         self.initial_x = self.get_parameter('x').get_parameter_value().double_value
         self.initial_y = self.get_parameter('y').get_parameter_value().double_value
         self.initial_yaw = self.get_parameter('yaw').get_parameter_value().double_value
-        self.robot_id = self.declare_parameter('robot_id', 'robot1').get_parameter_value().string_value
+        self.robot_id = self.get_parameter('robot_id').value
 
         self.pick_up_client = self.create_client(ItemRequest, '/pick_up_item')
         self.offload_client = self.create_client(ItemRequest, '/offload_item')
         
-        self.namespace = self.robot_id
+        namespace = self.robot_id
         # 初始化订阅器和发布器
-        self.odom_subscriber = self.create_subscription(Odometry, 'odom', self.odom_callback, 10)
-        self.item_subscriber = self.create_subscription(PushItemList, f'/{self.namespace}/assign_items', self.item_callback, 10)
+        self.odom_subscriber = self.create_subscription(Odometry, f'odom', self.odom_callback, 10)
+        self.item_subscriber = self.create_subscription(PushItemList, f'/{namespace}/fixed_items', self.item_callback, 10)
         self.zone_subscriber = self.create_subscription(ZoneList, '/fixed_zones', self.zone_callback, 10)
         self.zone_activation_publisher = self.create_publisher(Zone, '/zone_activate', 10)
-        #self.ekf_subscriber = self.create_subscription(PoseWithCovarianceStamped, f'/{self.namespace}/ekf_pose',self.ekf_callback, 10)
-        
-        #self.item_activation_publisher = self.create_publisher(PushItem,f'/{self.namespace}/item_activate',10)
+        self.item_activation_publisher = self.create_publisher(PushItem,f'/{namespace}/item_activate',10)
         self.current_items = []
         self.current_zones = {}
-        self.spin_action_client = ActionClient(self, Spin, f'/{self.namespace}/spin')
+        self.spin_action_client = ActionClient(self, Spin, 'spin')
 
         self.set_init_pose_flag = False
 
@@ -58,6 +57,7 @@ class RobotController(Node):
         self.tf_listener = TransformListener(self.tf_buffer, self)  
 
         self.loop = 1
+        self.item_held = None
         self.nav_to_ball_flag = False
         self.nav_to_zone_flag = False
         self.current_target = {}
@@ -71,10 +71,6 @@ class RobotController(Node):
         self.timer = self.create_timer(self.timer_period, self.control_loop)
     
     def item_callback(self, msg):
-        if msg.data:
-            self.get_logger().info(f"Received {len(msg.data)} items from item manager.")
-        else:
-            self.get_logger().info("Received empty item list from item manager.")
         self.current_items = msg.data
 
     def zone_callback(self, msg):
@@ -100,8 +96,7 @@ class RobotController(Node):
         self.yaw = -math.degrees(yaw)
         if self.yaw < 0:
             self.yaw += 360 #normalise to 0-360 to act as a bearing
-        self.get_logger().info(f"Updated pose: X={self.pos_x:.2f}, Y={self.pos_y:.2f}, Yaw={self.yaw:.2f} degrees")
-
+    
     def item_pickup(self, robot_id):
         if not self.pick_up_client.wait_for_service(timeout_sec=3.0):
             self.get_logger().error("Pick-up service not available.")
@@ -145,6 +140,7 @@ class RobotController(Node):
         goal_pose.header.stamp = self.navigator.get_clock().now().to_msg()
         goal_pose.pose.position.x = goal['wx']
         goal_pose.pose.position.y = goal['wy']
+        goal_pose.pose.position.z = 1.0
         goal_pose.pose.orientation.w = goal['ww']
         
         self.get_logger().info(f"\n----------------x = {goal['wx']}, y = {goal['wy']}--------------\n")
@@ -166,25 +162,24 @@ class RobotController(Node):
         
     def find_ball_position(self, ball):
         current_target = {}
-        #estimated_distance = max(0.1, min(69.0 * (float(ball.diameter) ** -0.89) + 0.1, 10.0))  # 限制距离范围到 0.1 ~ 10.0
-
         estimated_distance = (69.0 * (float(ball.diameter) ** -0.89)) + 0.1 #aims further then nessessary
         ball_x_mult = (0.003 * estimated_distance) + 0.085 #since camera is mounted near front mult changes with distance
         angle_diff = -ball_x_mult * ball.x
         estimated_angle = self.yaw + angle_diff
-        #estimated_angle = self.normalize_angle(estimated_angle)  # 确保角度在 0-360 范围
             
         x = estimated_distance * math.cos(math.radians(estimated_angle)) #x is positive towards 0 degrees?!
         y = estimated_distance * -math.sin(math.radians(estimated_angle)) #y is positive towards 90 degrees?!
         current_target['id'] = ball.id
         current_target['colour'] = ball.colour
-        current_target['wx'] = x + (self.pos_x)
+        current_target['wx'] = x + self.pos_x
         current_target['wy'] = y + self.pos_y
         current_target['ww'] = estimated_angle
         self.get_logger().info(f"Item.x{x:2f}, Item.y{y:2f},Item.w{estimated_angle:2f}")
         self.get_logger().info(f"currect_item:{current_target}")
         return current_target
         # 返回至enact
+
+    def find_closest_item_OLD(self):
         if not self.current_items:
             self.get_logger().info("No items available.")
             return None
@@ -212,6 +207,25 @@ class RobotController(Node):
 
         return closest_item
 
+    def activate_item(self):
+        closest_item = self.find_closest_item()
+
+        if not closest_item:
+            return
+
+        activation_msg = PushItem(
+            id=closest_item.id,
+            x=closest_item.x,
+            y=closest_item.y,
+            diameter=closest_item.diameter,
+            colour=closest_item.colour,
+            value=closest_item.value,
+            status='assigned'
+        )
+
+        self.item_activation_publisher.publish(activation_msg)
+        return closest_item
+
     def activate_zone(self, zone_name, colour):
         """
         发布区域激活信息
@@ -229,7 +243,7 @@ class RobotController(Node):
             fixed_colour=colour,
             status='assigned'
         )
-        self.current_zones = {}
+
         self.zone_activation_publisher.publish(zone_msg)
         self.get_logger().info(f"Activated zone: {zone_name} for colour {colour}")
 
@@ -270,8 +284,7 @@ class RobotController(Node):
             else:
                 self.get_logger().error("Failed to call offload service.")  
                 return False
-        self.current_items = []
-
+            
     def nav_loop(self,target):
         self.get_logger().info(f"中转值为：{target}")
         self.nav_to_ball(target)
@@ -282,67 +295,70 @@ class RobotController(Node):
         self.loop += 1
         self.get_logger().info(f"第 {self.loop} 个循环")
 
-        for item in self.current_items:
-            self.get_logger().info(f"Item: {item}, type: {type(item)}")
+        while True:  # 循环检查是否有可用的 item
+            cloest_activate_item = self.activate_item()
+            if cloest_activate_item:  # 如果有可用的 item
+                cloest_activate_item_pose = self.find_ball_position(cloest_activate_item)
+                self.nav_loop(cloest_activate_item_pose)
+                break  # 找到 item 后退出循环
+            else:
+                self.get_logger().info("No items available, spinning to find items...")
+                if not self.spin():  # 如果 spin 失败，则记录日志并继续尝试
+                    self.get_logger().error("Spin action failed. Retrying...")
 
-        first_item = self.current_items[0]
-        cloest_activate_item_pose = self.generate_pose(first_item)
-        self.nav_loop(cloest_activate_item_pose)
-        self.cleanup()
         self.get_logger().info(f"清空中，正在初始化下次循环")
-    
-    def normalize_angle(self, angle):
-        """
-        将角度归一化到 0 到 360 范围
-        """
-        while angle < 0:
-            angle += 360
-        while angle >= 360:
-            angle -= 360
-        return angle
+        self.cleanup()
 
     def enact_bot_test(self):
             self.loop += 1
             self.get_logger().info(f"第 {self.loop} 个循环")
-
-            for item in self.current_items:
-                self.get_logger().info(f"Item: {item}, type: {type(item)}")
-
-            
-            for idx, item in enumerate(self.current_items):
-                if not hasattr(item, 'diameter'):
-                    self.get_logger().error(f"Item at index {idx} does not have a 'diameter' attribute. Item: {item}")
-                else:
-                    self.get_logger().info(f"Item at index {idx} has diameter: {item.diameter}")
             #self.get_logger().info(f"初始位置： X：{self.initial_x}，Y：{self.initial_y} ")
             #self.nav_loop()
-            # self.find_ball_position(self.find_closest_item())
-
+            self.find_ball_position(self.find_closest_item())
             
             self.get_logger().info(f"清空中，正在初始化下次循环")
             self.cleanup()
 
-    def generate_pose(self,target):
-        current_target = {}
-        relative_x = target.x
-        relative_y = target.y
-
-        global_x = self.pos_x + relative_x * math.cos(self.yaw) - relative_y * math.sin(self.yaw)
-        global_y = self.pos_x + relative_x * math.sin(self.yaw) + relative_y * math.cos(self.yaw)
-
-        current_target['id'] = target.id
-        current_target['colour'] = target.colour
-        current_target['wx'] = global_x
-        current_target['wy'] = global_y
-        current_target['ww'] = self.yaw
-        
-        self.get_logger().info(f"Item.x{global_x:2f}, Item.y{global_y:2f}")
-        return current_target
-
     def cleanup(self):
         self.nav_to_ball_flag = False
         self.nav_to_zone_flag = False
-        self.current_items = []
+
+    def spin(self):
+        """
+            使用 spin_once 等待 spin 动作完成
+            """
+        if not self.spin_action_client.wait_for_server(timeout_sec=10.0):
+            self.get_logger().error("Spin action server not available!")
+            return False
+        target_yaw = random.uniform(3.0,6.0)
+        goal = Spin.Goal()
+        goal.target_yaw = target_yaw
+
+        self.get_logger().info(f"Sending spin goal: {target_yaw:.2f} radians")
+        goal_future = self.spin_action_client.send_goal_async(goal)
+        rclpy.spin_once(self)  # 等待 goal 发送完成
+
+        goal_handle = goal_future.result()
+        if not goal_handle.accepted:
+            self.get_logger().error("Spin goal rejected!")
+            return False
+
+        self.get_logger().info("Spin goal accepted. Waiting for result...")
+        result_future = goal_handle.get_result_async()
+
+        # 使用 spin_once 等待结果
+        while not result_future.done():
+            self.get_logger().info("Processing callbacks...")
+            rclpy.spin_once(self, timeout_sec=0.1)  # 每次检查回调队列
+
+        # 获取结果
+        try:
+            result = result_future.result().result
+            self.get_logger().info(f"Spin completed successfully in {result.total_elapsed_time.sec} seconds.")
+            return True
+        except Exception as e:
+            self.get_logger().error(f"Spin failed: {e}")
+            return False
                  
     def check_zone_available(self, colour):
         """
@@ -370,19 +386,16 @@ class RobotController(Node):
         # 如果没有可用的区域
         self.get_logger().error(f"No available zones for colour {colour}.")
         return None,None
-    
+
     def control_loop(self):
         if not self.set_init_pose_flag:
             self.initial_robot_pose()
             return
-        if not self.current_items:
-            self.spin()
-            return
         
         while self.loop > 0:
-            self.get_logger().info(f"Starting navigation loop {self.loop}.{self.robot_id}")
-            self.enact_bot()
-            
+            self.get_logger().info(f"Starting navigation loop {self.loop}.")
+            self.enact_bot_test()
+            #self.spin()
             # self.random_test()
             break
         self.get_logger().info("Waiting For next Item")
@@ -395,21 +408,49 @@ class RobotController(Node):
             self._action_server.destroy()
         super().destroy_node()
 
-    def spin(self):
+    def find_closest_item(self):
         """
-            使用 spin_once 等待 spin 动作完成
-            """
-        if not self.spin_action_client.wait_for_server(timeout_sec=10.0):
-            self.get_logger().error("Spin action server not available!")
-            return False
-        target_yaw = random.uniform(2.0,4.0)
-        goal = Spin.Goal()
-        goal.target_yaw = target_yaw
+        找到距离机器人最近的物品。
+        """
+        if not self.current_items:
+            self.get_logger().info("No items available.")
+            return None
 
-        self.get_logger().info(f"Sending spin goal: {target_yaw:.2f} radians")
-        goal_future = self.spin_action_client.send_goal_async(goal)
-        rclpy.spin_once(self)  # 等待 goal 发送完成
-        self.get_logger().info("Spin goal sended. Waiting for result...")
+        # 打乱物品列表，避免固定顺序的影响
+        shuffled_items = random.sample(self.current_items, len(self.current_items))
+        self.get_logger().info(f"Shuffled items: {shuffled_items}")
+
+        closest_item = None
+        min_distance = float('inf')
+        MAX_DIAMETER = 50.0
+
+        for item in shuffled_items:
+            # 跳过非 free 状态的物品
+            if item.status != 'free':
+                self.get_logger().info(f"Skipping item {item.id}, status: {item.status}")
+                continue
+
+            # 计算物品与机器人的欧几里得距离
+            if item.diameter > 0:  # 避免除以零
+                distance = math.sqrt((item.x - self.pos_x) ** 2 + (item.y - self.pos_y) ** 2)* (MAX_DIAMETER / item.diameter)
+            self.get_logger().info(f"Item ID: {item.id}, Distance: {distance:.2f}, Position: ({item.x}, {item.y})")
+
+            # 如果当前物品距离更近，则更新最近物品
+            if distance < min_distance:
+                min_distance = distance
+                closest_item = item
+
+        # 如果找到最近物品，记录其信息
+        if closest_item:
+            self.get_logger().info(
+                f"Selected closest item: ID={closest_item.id}, Distance={min_distance:.2f}, Position=({closest_item.x}, {closest_item.y})"
+            )
+        else:
+            self.get_logger().info("No free items found.")
+
+        return closest_item
+
+
 
 def main(args=None):
 

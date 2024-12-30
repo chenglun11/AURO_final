@@ -35,8 +35,8 @@ class zone_manager(Node):
                 zone.wx = float(data['wx'])
                 zone.wy = float(data['wy'])
                 zone.ww = float(data['ww'])
-                zone.fixed_colour = data['c'] if data['c'] is not None else 'None'
-                zone.status = data['status'] if data['status'] is not None else 'unknown'
+                zone.fixed_colour = data['c']
+                zone.status = data['status']
                 msg.zones.append(zone)
             except KeyError as e:
                 self.get_logger().error(f"Zone data for {name} is missing key: {e}")
@@ -48,8 +48,9 @@ class zone_manager(Node):
 
     def zone_activation_callback(self,msg):
         if msg.name in self.zones:
-            if self.zones[msg.name]['c'] is None:
-                self.zones[msg.name]['c'] = msg.fixed_colour
+            if self.zones[msg.name]['c'].strip().lower() == 'none':
+                self.zones[msg.name]['c'] = str(msg.fixed_colour)
+                self.publish_zones()
                 self.get_logger().info(f"Zone {msg.name} activate colour {msg.fixed_colour}")
             else:
                 self.get_logger().info(f"Zone {msg.name} is already activate colour {self.zones[msg.name]['c']}")
