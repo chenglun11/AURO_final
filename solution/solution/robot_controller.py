@@ -16,7 +16,8 @@ from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 from geometry_msgs.msg import TransformStamped
 from geometry_msgs.msg import PoseStamped
 from auro_interfaces.srv import ItemRequest
-from assessment_interfaces.msg import  ZoneList,ItemList
+from assessment_interfaces.msg import  ItemList
+from solution_interfaces.msg import Zone, ZoneList
 from rclpy.duration import Duration
 
 from tf_transformations import euler_from_quaternion
@@ -31,13 +32,14 @@ class RobotController(Node):
 
         self.odom_subscriber = self.create_subscription(Odometry,'odom',self.odom_callback,10)
         self.item_subscriber = self.create_subscription(ItemList, 'items', self.item_callback, 10)
-        self.zone_subscriber = self.create_subscription(ZoneList, 'zone', self.zone_callback, 10)
+        self.zone_subscriber = self.create_subscription(ZoneList, '/fixed_zones', self.zone_callback, 10)
+        self.zone_activation_publisher = self.create_publisher(Zone, '/zone_activate', 10)
         random.seed()
         self.current_items = []
         self.current_zones = []
         self.zone_init_flag = False
         self.spin_action_client = ActionClient(self, Spin, 'spin')
-        self.declare_parameter('x', -3.5)
+        self.declare_parameter('x', 0.0)
         self.declare_parameter('y', 0.0)
         self.declare_parameter('yaw', 0.0)
         self.declare_parameter('robot_id', 'robot1')
@@ -64,14 +66,6 @@ class RobotController(Node):
         self.navigator.waitUntilNav2Active()
         self.get_logger().info(f"\t初始化完成\t")
 
-
-        self.zones = {
-            'TOP_RIGHT': {'c':None,'wx': 2.35, 'wy': -2.5,'ww':1.0},      # 右上角
-            'TOP_LEFT': {'c':None,'wx': 2.35, 'wy': 2.35,'ww':1.0},     # 左上角
-            'BUT_LEFT': {'c':None,'wx': -3.25, 'wy': 2.35,'ww':1.0}, # 左下角
-            'BUT_RIGHT': {'c':None,'wx': -3.25, 'wy': -2.35,'ww':1.0}       # 左下角
-        }
-
         self.timer_period = 0.1 # 100 milliseconds = 10 Hz
         self.timer = self.create_timer(self.timer_period, self.control_loop)
     
@@ -81,7 +75,15 @@ class RobotController(Node):
 
     def zone_callback(self,msg):
         # self.get_logger().info(f"Received {len(msg.data)} items from ZoneSensor.")
-        self.current_zones = msg.data
+        self.current_zones = {
+            zone.name: {
+                'wx': zone.wx,
+                'wy': zone.wy,
+                'ww': zone.ww,
+                'colour': zone.fixed_colour,
+                'status': zone.status
+            } for zone in msg.zones
+        }
 
     def odom_callback(self, msg):
         (roll, pitch, yaw) = euler_from_quaternion([msg.pose.pose.orientation.x,
@@ -164,7 +166,8 @@ class RobotController(Node):
         estimated_distance = (69.0 * (float(ball.diameter) ** -0.89)) + 0.1 #aims further then nessessary
         ball_x_mult = (0.003 * estimated_distance) + 0.085 #since camera is mounted near front mult changes with distance
         angle_diff = -ball_x_mult * ball.x
-        estimated_angle = self.yaw + angle_diff
+        # estimated_angle = self.yaw + angle_diff
+        estimated_angle = (self.yaw + angle_diff) % 360  
             
         x = estimated_distance * math.cos(math.radians(estimated_angle)) #x is positive towards 0 degrees?!
         y = estimated_distance * -math.sin(math.radians(estimated_angle)) #y is positive towards 90 degrees?!
@@ -220,14 +223,11 @@ class RobotController(Node):
         #拿颜色
         target_colour = current_target['colour'] 
         #检查颜色是否可以,并返回zone
-        checked_zone = self.check_zone_available(target_colour)
+        zone_name, zone_data  = self.check_zone_available(target_colour)
 
-        if not checked_zone:  # 如果没有可用的区域
+        if not zone_name:  # 如果没有可用的区域
             self.get_logger().error(f"No available zone for colour: {target_colour}")
             return False
-
-        zone_name, zone_data = list(checked_zone.items())[0]  # 拿到第一个被分配的区域
-        self.get_logger().info(f"Assigned Zone: {zone_name}, Data: {zone_data}")
 
         zone_target = zone_data
 
@@ -248,23 +248,9 @@ class RobotController(Node):
         self.nav_to_ball(target)
         self.nav_to_zone(target)
         
-
-    def get_robot_pose_tf2(self):
-        try:
-            transform: TransformStamped = self.tf_buffer.lookup_transform(
-                'map', 'base_link', rclpy.time.Time())
-            
-            self.pos_x = transform.transform.translation.x
-            self.pos_y = transform.transform.translation.y
-            self.yaw = transform.transform.rotation.w
-            self.get_logger().info(f"TF2 Position: x={self.pos_x}, y={self.pos_y}")
-        except Exception as e:
-            self.get_logger().error(f"Failed to get robot pose via tf2: {e}")
-        
     def enact_bot(self):
             self.loop += 1
             self.get_logger().info(f"第 {self.loop} 个循环")
-            self.find_another_target()
             # 接收到返回坐标
             finded_target = self.find_ball_position(self.find_closest_item())
             # 中转导航
@@ -279,119 +265,151 @@ class RobotController(Node):
 
     def spin(self):
         """
-            使用 spin_once 等待 spin 动作完成
-            """
+        使用 spin_until_future_complete 等待 spin 动作完成
+        """
         if not self.spin_action_client.wait_for_server(timeout_sec=10.0):
             self.get_logger().error("Spin action server not available!")
             return False
-        target_yaw = random.uniform(3.0,6.0)
+
+        target_yaw = 3.0
         goal = Spin.Goal()
         goal.target_yaw = target_yaw
 
         self.get_logger().info(f"Sending spin goal: {target_yaw:.2f} radians")
         goal_future = self.spin_action_client.send_goal_async(goal)
-        rclpy.spin_once(self)  # 等待 goal 发送完成
 
+        # 等待 goal_future 完成
+        rclpy.spin_until_future_complete(self, goal_future, timeout_sec=10.0)  # 添加超时参数
+        if not goal_future.done():
+            self.get_logger().error("Failed to send spin goal: Future not done.")
+            return False
+
+        # 获取 goal_handle
         goal_handle = goal_future.result()
-        if not goal_handle.accepted:
-            self.get_logger().error("Spin goal rejected!")
+        if goal_handle is None or not goal_handle.accepted:
+            self.get_logger().error("Spin goal rejected or goal_handle is None!")
             return False
 
         self.get_logger().info("Spin goal accepted. Waiting for result...")
         result_future = goal_handle.get_result_async()
 
-        # 使用 spin_once 等待结果
-        while not result_future.done():
-            self.get_logger().info("Processing callbacks...")
-            rclpy.spin_once(self, timeout_sec=0.1)  # 每次检查回调队列
+        # 等待 result_future 完成
+        rclpy.spin_until_future_complete(self, result_future, timeout_sec=10.0)  # 添加超时参数
+        if not result_future.done():
+            self.get_logger().error("Failed to get spin result: Future not done.")
+            return False
 
         # 获取结果
         try:
-            result = result_future.result().result
+            result = result_future.result()
+            if result is None:
+                self.get_logger().error("Spin result is None!")
+                return False
             self.get_logger().info(f"Spin completed successfully in {result.total_elapsed_time.sec} seconds.")
             return True
         except Exception as e:
             self.get_logger().error(f"Spin failed: {e}")
             return False
 
-    def random_test(self): # only for test
-        # 创建独立的随机数生成器
-        for _ in range(3):
-            print("Iteration start")
-            checked_zone = self.check_zone_available("RED")
-            print(f"Checked zone: {checked_zone}")
-            print("-" * 30)
+    def find_items(self):
+        """
+        检查 current_items 是否为空，若为空则调用 spin 方法获取新项。
+        """
+        if not self.current_items:
+            self.get_logger().info("current_items is empty. Attempting to spin...")
 
-    #TODO
-    def find_another_target(self):
-        noitem = True
-        while noitem:
-            if not self.current_items:
-                self.get_logger().info("Waiting for items to be detected...,Spining")
-                
-                target = self.spin()
-                if target:
-                    return
+            # 调用 spin 方法
+            spin_result = self.spin()
+            self.get_logger().info(f"Spin result: {spin_result}")
+            if spin_result:
+                self.get_logger().info("Spin completed successfully. Checking for new items...")
+                if self.current_items:  # 检查是否有新项
+                    self.get_logger().info("New items found after spin.")
+                    return True
                 else:
-                    self.get_logger().info(f"spin error -from FAT")
+                    self.get_logger().warning("No items found even after spin.")
+                    return False
             else:
-                noitem = False
-        return
+                self.get_logger().error("Spin failed. Unable to proceed.")
+                return False
 
-                 
-    def check_zone_available(self, colour):
-        """
-        查找并分配目标颜色的区域。
-        如果找到已有颜色的区域，直接返回。
-        如果没有找到，则分配目标颜色到第一个未分配的区域。
-        最终返回一个包含分配或找到区域的 `checked_zone`。
-        """
-        checked_zone = {}  # 用于记录被修改的区域
-        zone_names = random.sample(list(self.zones.keys()), len(self.zones))  # 随机化顺序
+        self.get_logger().info("current_items is not empty. Processing item...")
+        return True
 
-        for zone_name in zone_names:  # 使用随机化后的区域顺序
-            zone_data = self.zones[zone_name]
-
-            # 优先查找相同颜色的区域
-            if zone_data['c'] == colour:  # 如果找到已有颜色
-                checked_zone[zone_name] = zone_data
-                self.get_logger().info(f"Found existing zone for colour '{colour}': {zone_name}")
-                return checked_zone  # 立即返回
-
-        # 如果没有找到相同颜色，再查找空闲区域
-        for zone_name in zone_names:  # 再次遍历区域
-            zone_data = self.zones[zone_name]
-            if zone_data['c'] is None:  # 如果找到空闲区域
-                zone_data['c'] = colour
-                checked_zone[zone_name] = zone_data
-                self.get_logger().info(f"Assigned colour '{colour}' to zone '{zone_name}'")
-                return checked_zone  # 返回分配的区域
-
-        # 如果没有找到可用区域
-        self.get_logger().error(f"No available zone for colour '{colour}'.")
-        return checked_zone  # 返回空的 `checked_zone`
-    
-    #on test
-    def print_zone(self):
-        for zone_name, zone_data in self.zones.items():
-            print(f"Zone: {zone_name}")
-            for key, value in zone_data.items():
-                print(f"  {key}: {value}")
-        print("-" * 30)  # 分隔线
 
     def control_loop(self):
+        """
+        控制主循环，结合 find_items 和 enact_bot 执行逻辑。
+        """
         if not self.set_init_pose_flag:
             self.initial_robot_pose()
             return
-        
-        while self.loop > 0:
-            self.get_logger().info(f"Starting navigation loop {self.loop}.")
-            self.enact_bot()
-            #self.spin()
-            # self.random_test()
-            break
-        self.get_logger().info("Waiting For next Item")
 
+        # 调用 find_items，确保有可处理的 items
+        if not self.find_items():
+            self.get_logger().warning("No items to process. Waiting for next iteration...")
+            return  # 等待下一次定时器触发
+
+        if self.loop > 0:
+            self.get_logger().info(f"Starting navigation loop {self.loop}.")
+
+            # 调用 enact_bot 方法执行动作
+            if not self.enact_bot():
+                self.get_logger().error("Enact bot failed. Skipping to next iteration.")
+                return  # 退出本次定时器调用
+
+            # 等待下一个 Item
+            self.get_logger().info("Waiting for next Item...")
+        else:
+            self.get_logger().info("No loops remaining. Exiting control loop.")
+
+    def check_zone_available(self, colour):
+        """
+        检查是否有已分配到指定颜色的区域，如果没有，则激活一个空闲区域。
+        """
+
+        shuffled_zones = list(self.current_zones.items())
+        random.shuffle(shuffled_zones)
+        self.get_logger().info(f"随机的区域为：{shuffled_zones}")
+        # 首先查找已分配给指定颜色的区域
+        for zone_name, zone_data in shuffled_zones:
+            #self.get_logger().info(f"目前所有的Zone为:{zone_name},:{zone_data}1(type: {type(zone_data['colour'])}")
+            if zone_data['colour'].strip().lower() == colour.strip().lower():
+                self.get_logger().info(f"Zone {zone_name} already assigned to colour {colour}")
+                return zone_name, zone_data  # 返回已分配区域的名称
+
+        # 查找未分配颜色的区域
+        for zone_name, zone_data in shuffled_zones:
+            #self.get_logger().info(f"目前所有的Zone为:{zone_name}, - colour: {repr(zone_data['colour'])}:{zone_data}2")
+            if zone_data['colour'].strip().lower() == 'none':
+                self.get_logger().info(f"Activating zone {zone_name} for colour {colour}")
+                self.activate_zone(zone_name, colour)  # 激活区域
+                return zone_name, zone_data 
+
+        # 如果没有可用的区域
+        self.get_logger().error(f"No available zones for colour {colour}.")
+        return None,None
+
+    def activate_zone(self, zone_name, colour):
+        """
+        发布区域激活信息
+        """
+        if zone_name not in self.current_zones:
+            self.get_logger().error(f"Zone {zone_name} does not exist!")
+            return
+
+        zone_data = self.current_zones[zone_name]
+        zone_msg = Zone(
+            name=zone_name,
+            wx=zone_data['wx'],
+            wy=zone_data['wy'],
+            ww=zone_data['ww'],
+            fixed_colour=colour,
+            status='assigned'
+        )
+        self.current_zones = {}
+        self.zone_activation_publisher.publish(zone_msg)
+        self.get_logger().info(f"Activated zone: {zone_name} for colour {colour}")
         
     def destroy_node(self):
         self.get_logger().info("Shutting down spin action server...")
