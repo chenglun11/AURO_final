@@ -271,7 +271,7 @@ class RobotController(Node):
             self.get_logger().error("Spin action server not available!")
             return False
 
-        target_yaw = 3.0
+        target_yaw = random.uniform(1.0,4.0)
         goal = Spin.Goal()
         goal.target_yaw = target_yaw
 
