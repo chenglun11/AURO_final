@@ -1,12 +1,3 @@
-<!-- PROJECT SHIELDS -->
-
-<!-- ![GitHub Repo stars](https://img.shields.io/github/stars/chenglun11/AURO_final)
-![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/chenglun11/AURO_final)
-![GitHub Release](https://img.shields.io/github/v/release/chenglun11/AURO_final)
-![GitHub License](https://img.shields.io/github/license/chenglun11/AURO_final) -->
-
-<!-- PROJECT LOGO -->
-
 <br />
 
 <p align="center">
@@ -23,7 +14,7 @@
     <br />
     <a href="#demo">Demo</a>
     ·
-    <a href="https://github.com/chenglun11/AURO_final/issues">简体中文[ZH-CN]</a>
+    <a href="https://github.com/chenglun11/AURO_final/blob/main/README_cn.md">简体中文[ZH-CN]</a>
     ·
     <a href="https://github.com/chenglun11/AURO_final/issues">Report Bug</a>
     ·
@@ -146,7 +137,7 @@ ros2 launch solution solution_nav2_launch Argument_name:data
 
 #### Arguments list
 
-- If you want to change number of robots to spawn `default_value=1`
+- Change number of robots to spawn `default_value=1`
 ```bash
 num_robots 
 ```
@@ -180,7 +171,7 @@ The Author detail is currectly unavailable duo to the policy of exam.
 
 ### License
 
-1. Package solution：Copyright (c) 2024 chenglun11 with [MIT License](/LICENSE)
+1. Package solution：Copyright (c) 2024 xxxx with [MIT License](/LICENSE)
 2. Package assessment: Copyright (c) 2024 University of York and others with ELP2.0
 
 ### Contributors
