@@ -63,6 +63,8 @@ TOC
 5. Ubuntu 22.04 `forced`
 6. Tf_transforms
 
+
+
 ### Getting Started
 
 1. install Requirements
@@ -74,7 +76,7 @@ sudo apt install ros-humble-tf-transformations
 1. Clone the repo `Will available soom`
 
 ```bash
-git clone https://github.com/chenglun11/AURO_final.git
+git clone https://github.com/xxxxx/AURO_final.git
 ```
 
 3. Build
@@ -92,6 +94,10 @@ source /path/install/local_setup.bash
 ``` bash
 ros2 launch solution solution_nav2_launch
 ```
+6. Examples
+``` bash
+ros2 launch solution solution_nav2_launch num_robot:=1
+```
 
 **More launch arguments see** [Arguments](#arguments)
 
@@ -104,7 +110,6 @@ filetree
 │  │  ├── custom_rviz_windows.yaml #rviz config
 │  │  └── initial_poses.yaml #pose config
 │  ├── /solution/
-│  │  ├── ItemManager.py #item controller
 │  │  ├── ZoneManager.py #zone controller
 │  │  ├── robot_controller.py #main controller
 │  │  ├── data_logger.py  #goal value logger
@@ -128,6 +133,8 @@ filetree
 **The rqt Graph**
 ![RQT](/imgs/rosgraph.svg)
 
+**TF Tree**
+![TF](/imgs/frames_2025-01-10_20.30.44.jpg)
 ### Arguments
 
 You could use `--show-args` to list all the arguments
@@ -173,7 +180,7 @@ The Author detail is currectly unavailable duo to the policy of exam.
 
 ### License
 
-1. Package solution：Copyright (c) 2024 chenglun11 with [MIT License](https://github.com/chenglun11/AURO_final/blob/main/LICENSE)
+1. Package solution：Copyright (c) 2024 chenglun11 with [MIT License](/LICENSE)
 2. Package assessment: Copyright (c) 2024 University of York and others with ELP2.0
 
 ### Contributors
