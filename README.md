@@ -39,7 +39,9 @@ TOC
 - [Requirements](#requirements)
 - [Getting Started](#getting-started)
 - [Catalog description](#catalog-description)
-- [Features](#features)
+- [Arguments](#arguments)
+  - [How to use arguments](#how-to-use-arguments)
+  - [Arguments list](#arguments-list)
 - [Version Control](#version-control)
 - [Author](#author)
 - [License](#license)
@@ -86,6 +88,12 @@ colcon build
 ```bash
 source /path/install/local_setup.bash
 ```
+5. Common use
+``` bash
+ros2 launch solution solution_nav2_launch
+```
+
+**More launch arguments see** [Arguments](#arguments)
 
 ### Catalog description
 
@@ -96,6 +104,8 @@ filetree
 │  │  ├── custom_rviz_windows.yaml #rviz config
 │  │  └── initial_poses.yaml #pose config
 │  ├── /solution/
+│  │  ├── ItemManager.py #item controller
+│  │  ├── ZoneManager.py #zone controller
 │  │  ├── robot_controller.py #main controller
 │  │  ├── data_logger.py  #goal value logger
 │  │  └── __init__.py
@@ -115,8 +125,41 @@ filetree
 └── README.md 
 
 ```
+**The rqt Graph**
+![RQT](/imgs/rosgraph.svg)
 
-### Features
+### Arguments
+
+You could use `--show-args` to list all the arguments
+#### How to use arguments
+The basic usage of argument example is:
+```bash
+ros2 launch solution solution_nav2_launch Argument_name:data
+```
+
+#### Arguments list
+
+- If you want to change number of robots to spawn `default_value=1`
+```bash
+num_robots 
+```
+- Random number seed for item manager(For random item) `default_value=1`
+```bash
+random_seed 
+```
+- Experiment duration in seconds `default_value='300.0'`
+```bash
+experiment_duration
+```
+- Full path to directory where data logs will be saved `default_value=#package_path`
+```bash
+data_log_path
+```
+- Filename prefix to use for data logs' `default_value='data_log'`
+```bash
+data_log_filename
+```
+---
 
 ### Version Control
 
