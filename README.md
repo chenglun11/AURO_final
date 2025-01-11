@@ -58,13 +58,13 @@ TOC
 
 ### Getting Started
 
-1. install Requirements
+1. Install Requirements
 
 ```bash
 sudo apt install ros-humble-tf-transformations
 ```
 
-1. Clone the repo `Will available soom`
+2. Clone the repo `Will available soom`
 
 ```bash
 git clone https://github.com/xxxxx/AURO_final.git
@@ -76,7 +76,7 @@ git clone https://github.com/xxxxx/AURO_final.git
 colcon build
 ```
 
-4. Source Code
+4. Source code
 
 ```bash
 source /path/install/local_setup.bash
