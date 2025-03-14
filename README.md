@@ -165,19 +165,17 @@ The project uses Git for version control. You can see the currently available ve
 
 ### Author
 
-The Author detail is currectly unavailable duo to the policy of exam.
-
-*You can also see all the developers involved in the project in the contributors list.*
+[chenglun11](https://github.com/chenglun11) is the coder of this repo
 
 ### License
 
-1. Package solution：Copyright (c) 2024 xxxx with [MIT License](/LICENSE)
+1. Package solution：Copyright (c) 2024 chenglun11 with [MIT License](/LICENSE)
 2. Package assessment: Copyright (c) 2024 University of York and others with ELP2.0
 
 ### Contributors
 
 **Thanks for every contributor and related package author**
 
-- Alan Millard - initial contributor
+- [Alan Millard](https://github.com/alanmillard) - initial contributor
 - [Pedro Ribeiro](https://github.com/pefribeiro) - revised implementation
 
